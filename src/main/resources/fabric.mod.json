@@ -1,41 +1,29 @@
 {
 	"schemaVersion": 1,
-	"id": "modid",
+	"id": "sabotage",
 	"version": "${version}",
-	"name": "Example mod",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"name": "Sabotage",
+	"description": "An implementation of MCPvP's Sabotage, using Plasmid.",
 	"authors": [
-		"Me!"
+		"ellieisjelly"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://github.com/ellieisjelly/Sabotage#readme",
+		"issues": "https://github.com/ellieisjelly/Sabotage/issues"
 	},
-	"license": "CC0-1.0",
-	"icon": "assets/modid/icon.png",
+	"license": "LGPL-3.0",
+	"icon": "assets/sabotage/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"com.example.ExampleMod"
-		],
-		"client": [
-			"com.example.ExampleModClient"
+			"me.ellieis.Sabotage"
 		]
 	},
-	"mixins": [
-		"modid.mixins.json",
-		{
-			"config": "modid.client.mixins.json",
-			"environment": "client"
-		}
-	],
 	"depends": {
 		"fabricloader": ">=0.15.0",
 		"minecraft": "~1.20.4",
 		"java": ">=17",
-		"fabric-api": "*"
-	},
-	"suggests": {
-		"another-mod": "*"
+		"fabric-api": "*",
+		"plasmid": ">=0.5.1"
 	}
 }
