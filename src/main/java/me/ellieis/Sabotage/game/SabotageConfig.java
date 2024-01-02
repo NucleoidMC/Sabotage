@@ -1,4 +1,4 @@
-package me.ellieis.game;
+package me.ellieis.Sabotage.game;
 
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;

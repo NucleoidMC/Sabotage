@@ -1,48 +1,50 @@
-package me.ellieis.game;
+package me.ellieis.Sabotage.game;
 
-import net.minecraft.block.Blocks;
+import me.ellieis.Sabotage.game.map.SabotageMap;
+import me.ellieis.Sabotage.game.map.SabotageMapBuilder;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import xyz.nucleoid.fantasy.RuntimeWorldConfig;
-import xyz.nucleoid.map_templates.MapTemplate;
 import xyz.nucleoid.plasmid.game.GameOpenContext;
 import xyz.nucleoid.plasmid.game.GameOpenProcedure;
 import xyz.nucleoid.plasmid.game.GameSpace;
 import xyz.nucleoid.plasmid.game.event.GamePlayerEvents;
 import xyz.nucleoid.plasmid.game.player.PlayerOffer;
 import xyz.nucleoid.plasmid.game.player.PlayerOfferResult;
-import xyz.nucleoid.plasmid.game.world.generator.TemplateChunkGenerator;
 
-public class SabotageLobby {
+public class SabotageGame {
     private final SabotageConfig config;
     private final GameSpace gameSpace;
+    private final SabotageMap map;
     private final ServerWorld world;
-    public SabotageLobby(SabotageConfig config, GameSpace gameSpace, ServerWorld world) {
+    public SabotageGame(SabotageConfig config, GameSpace gameSpace, SabotageMap map, ServerWorld world) {
         this.config = config;
         this.gameSpace = gameSpace;
+        this.map = map;
         this.world = world;
     }
     public static GameOpenProcedure Open(GameOpenContext<SabotageConfig> context) {
         SabotageConfig config = context.game().config();
-        // create a very simple map with a stone block at (0; 64; 0)
-        MapTemplate template = MapTemplate.createEmpty();
-        template.setBlockState(new BlockPos(0, 64, 0), Blocks.STONE.getDefaultState());
-
-        // create a chunk generator that will generate from this template that we just created
-        TemplateChunkGenerator generator = new TemplateChunkGenerator(context.server(), template);
-
+        MinecraftServer server = context.server();
         // set up how the world that this minigame will take place in should be constructed
+        SabotageMap map = SabotageMapBuilder.build(server, new Identifier("sabotage:lobby"));
         RuntimeWorldConfig worldConfig = new RuntimeWorldConfig()
-                .setGenerator(generator)
+                .setGenerator(map.asChunkGenerator(server))
                 .setTimeOfDay(6000);
 
         return context.openWithWorld(worldConfig, (activity, world) -> {
-            SabotageLobby game = new SabotageLobby(config, activity.getGameSpace(), world);
+            SabotageGame game = new SabotageGame(config, activity.getGameSpace(), map, world);
             activity.listen(GamePlayerEvents.OFFER, game::onOffer);
+            activity.listen(GamePlayerEvents.JOIN, game::onJoin);
         });
+    }
+
+    private void onJoin(ServerPlayerEntity plr) {
+        this.map.spawnEntity(this.world, plr);
     }
     private PlayerOfferResult onOffer(PlayerOffer offer) {
         ServerPlayerEntity plr = offer.player();

@@ -16,7 +16,7 @@
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"me.ellieis.Sabotage"
+			"me.ellieis.Sabotage.Sabotage"
 		]
 	},
 	"depends": {
