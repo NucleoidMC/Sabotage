@@ -65,20 +65,14 @@ public class SabotageWaiting {
             GameWaitingLobby.addTo(activity, config.getPlayerConfig());
 
             rules(activity);
-            activity.listen(GameActivityEvents.TICK, game::onTick);
             activity.listen(GamePlayerEvents.OFFER, game::onOffer);
             activity.listen(GameActivityEvents.REQUEST_START, game::requestStart);
         });
     }
 
     public GameResult requestStart() {
-        // to-do: checks if start should happen
         SabotageActive.Open(this.gameSpace, this.world, this.map, this.config);
         return GameResult.ok();
-    }
-
-    private void onTick() {
-
     }
 
     private PlayerOfferResult onOffer(PlayerOffer offer) {
