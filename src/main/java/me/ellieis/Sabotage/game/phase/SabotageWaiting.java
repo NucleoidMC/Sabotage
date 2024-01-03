@@ -13,6 +13,7 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import xyz.nucleoid.fantasy.RuntimeWorldConfig;
 import xyz.nucleoid.plasmid.game.*;
+import xyz.nucleoid.plasmid.game.common.GameWaitingLobby;
 import xyz.nucleoid.plasmid.game.common.GlobalWidgets;
 import xyz.nucleoid.plasmid.game.common.widget.SidebarWidget;
 import xyz.nucleoid.plasmid.game.event.GameActivityEvents;
@@ -61,18 +62,12 @@ public class SabotageWaiting {
 
         return context.openWithWorld(worldConfig, (activity, world) -> {
             SabotageWaiting game = new SabotageWaiting(config, activity.getGameSpace(), map, world);
-            game.widget = GlobalWidgets.addTo(activity).addSidebar();
-            game.widget.setTitle(
-                    Text.translatableWithFallback("gameType.sabotage.sabotage", "Sabotage").formatted(Formatting.GOLD)
-            );
-            game.widget.setLine(SidebarLine.create(1, Text.translatableWithFallback("sabotage.waiting", "Waiting for players.")));
-            // line 0 is reserved for player count in this phase.
-            // it's only set once a player joins.
+            GameWaitingLobby.addTo(activity, config.getPlayerConfig());
+
             rules(activity);
             activity.listen(GameActivityEvents.TICK, game::onTick);
             activity.listen(GamePlayerEvents.OFFER, game::onOffer);
-            activity.listen(GamePlayerEvents.JOIN, game::onJoin);
-            activity.listen(GamePlayerEvents.LEAVE, game::onLeave);
+            activity.listen(GameActivityEvents.REQUEST_START, game::requestStart);
         });
     }
 
@@ -86,27 +81,8 @@ public class SabotageWaiting {
 
     }
 
-    private void onJoin(ServerPlayerEntity plr) {
-        this.map.spawnEntity(this.world, plr);
-        this.widget.addPlayer(plr);
-        long playerCount = this.gameSpace.getPlayers().stream().count();
-        this.widget.setLine(SidebarLine.create(0,  Text.literal(playerCount + "/" +  this.config.getMaxPlayers() + " Players"  )));
-        if (playerCount >= 4) {
-            //requestStart();
-        } else {
-        }
-    }
-
-    private void onLeave(ServerPlayerEntity _plr) {
-        long playerCount = this.gameSpace.getPlayers().stream().count();
-        this.widget.setLine(SidebarLine.create(0,  Text.literal(playerCount + "/" +  this.config.getMaxPlayers() + " Players"  )));
-    }
     private PlayerOfferResult onOffer(PlayerOffer offer) {
         ServerPlayerEntity plr = offer.player();
-        long playerCount = this.gameSpace.getPlayers().stream().count();
-        if (playerCount >= this.config.getMaxPlayers()) {
-            return offer.reject(Text.translatableWithFallback("sabotage.full", "Game is full."));
-        }
         return offer.accept(this.world, new Vec3d(0.0, 66.0, 0.0)).and(() -> {
             plr.changeGameMode(GameMode.ADVENTURE);
         });
