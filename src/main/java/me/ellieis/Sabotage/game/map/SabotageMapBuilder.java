@@ -15,7 +15,7 @@ public class SabotageMapBuilder {
             MapTemplate template = MapTemplateSerializer.loadFromResource(server, identifier);
             return new SabotageMap(template);
         } catch(IOException exception) {
-            throw new GameOpenException(Text.of("Failed to load map " + identifier), exception);
+            throw new GameOpenException(Text.literal("Failed to load map " + identifier), exception);
         }
     }
 }

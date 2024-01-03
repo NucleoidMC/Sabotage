@@ -1,4 +1,6 @@
 {
   "type": "sabotage:sabotage",
-  "map": "sabotage:lobby"
+  "map": "sabotage:lobby",
+  "players_required": 2,
+  "max_players": 10
 }

@@ -1,3 +1,5 @@
 {
-  "gameType.sabotage.sabotage": "Sabotage"
+  "gameType.sabotage.sabotage": "Sabotage",
+  "sabotage.waiting": "Waiting for players.",
+  "sabotage.full": "Game is full."
 }
