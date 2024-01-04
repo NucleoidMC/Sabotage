@@ -1,6 +1,8 @@
 package me.ellieis.Sabotage.game.phase;
 
 import com.google.common.collect.ImmutableSet;
+import eu.pb4.sidebars.api.Sidebar;
+import eu.pb4.sidebars.api.lines.SidebarLine;
 import me.ellieis.Sabotage.game.SabotageConfig;
 import me.ellieis.Sabotage.game.map.SabotageMap;
 import net.minecraft.network.packet.s2c.play.PositionFlag;
@@ -102,6 +104,7 @@ public class SabotageActive {
         this.detectives.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.detective").formatted(Formatting.DARK_BLUE)), 10, 80, 10);
         this.detectives.playSound(SoundEvents.BLOCK_AMETHYST_BLOCK_CHIME);
         this.saboteurs.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.saboteur").formatted(Formatting.RED)), 10, 80, 10);
+        this.saboteurs.playSound(SoundEvents.ENTITY_ILLUSIONER_CAST_SPELL);
         this.saboteurs.playSound(SoundEvents.AMBIENT_SOUL_SAND_VALLEY_MOOD.value());
     }
     public void Start() {
@@ -114,8 +117,11 @@ public class SabotageActive {
             SabotageActive game = new SabotageActive(config, gameSpace, map, world);
             game.startTime = world.getTime();
             game.countdown = true;
+            game.activity = activity;
             game.widgets = GlobalWidgets.addTo(activity);
-            game.globalSidebar = game.widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage"));
+            game.globalSidebar = game.widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
+            game.globalSidebar.setPriority(Sidebar.Priority.LOW);
+            game.globalSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.countdown")));
             rules(activity);
             activity.listen(GameActivityEvents.TICK, game::onTick);
 
@@ -127,7 +133,6 @@ public class SabotageActive {
                 game.map.spawnEntity(world, plr);
                 game.globalSidebar.addPlayer(plr);
             });
-
         });
     }
 
@@ -160,8 +165,12 @@ public class SabotageActive {
             } else {
                 // to-do: implement grace period
                 int secondsSinceStart = (int) Math.floor((time / 20) - (this.startTime / 20)) - this.config.getCountdownTime();
-                if (secondsSinceStart >= this.config.getGracePeriod()) {
+                int gracePeriod = this.config.getGracePeriod();
+                if (secondsSinceStart >= gracePeriod) {
                     Start();
+                } else {
+                    int secondsLeft = gracePeriod - secondsSinceStart;
+                    this.globalSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.grace_period." + ((secondsLeft == 1) ? "singular" : "plural"), secondsLeft)));
                 }
             }
         } else {
