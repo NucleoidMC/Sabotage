@@ -1,5 +1,10 @@
 {
   "gameType.sabotage.sabotage": "Sabotage",
   "sabotage.waiting": "Waiting for players.",
-  "sabotage.full": "Game is full."
+  "sabotage.full": "Game is full.",
+  "sabotage.game_start": "The game has started! You have %s seconds to collect items, gear, or hide. Your roles will be selected after the grace period.",
+  "sabotage.role_reveal": "You are a %s",
+  "sabotage.innocent": "Innocent",
+  "sabotage.detective": "Detective",
+  "sabotage.saboteur": "Saboteur"
 }

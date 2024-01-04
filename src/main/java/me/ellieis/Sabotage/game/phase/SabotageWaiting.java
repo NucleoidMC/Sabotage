@@ -28,7 +28,6 @@ public class SabotageWaiting {
     private final GameSpace gameSpace;
     private final SabotageMap map;
     private final ServerWorld world;
-    private SidebarWidget widget;
     private int playerCount;
     public SabotageWaiting(SabotageConfig config, GameSpace gameSpace, SabotageMap map, ServerWorld world) {
         this.config = config;

@@ -20,13 +20,13 @@ import java.util.stream.Stream;
 
 public class SabotageMap {
     private final MapTemplate template;
-    private final Stream<TemplateRegion> spawns;
+    private final List<TemplateRegion> spawns;
     private final Map<PlayerRef, Vec3d> playerSpawnPos = new HashMap<>();
 
     public SabotageMap(MapTemplate template) {
         this.template = template;
-        this.spawns = template.getMetadata().getRegions("spawn");
-        if (this.spawns == null) {
+        this.spawns = template.getMetadata().getRegions("spawn").toList();
+        if (this.spawns.isEmpty()) {
             throw new GameOpenException(Text.literal("Failed to load spawns"));
         }
     }
@@ -35,7 +35,7 @@ public class SabotageMap {
         return this.template;
     }
 
-    public Stream<TemplateRegion> getSpawns() {
+    public List<TemplateRegion> getSpawns() {
         return this.spawns;
     }
 
@@ -44,16 +44,14 @@ public class SabotageMap {
     }
 
     public void spawnEntity(Entity entity) {
-        List<TemplateRegion> spawnList = spawns.toList();
-        TemplateRegion spawn = spawnList.get(new Random().nextInt(spawnList.size()));
+        TemplateRegion spawn = spawns.get(new Random().nextInt(spawns.size()));
         Vec3d pos = spawn.getBounds().centerBottom();
         entity.teleport(pos.getX(), pos.getY(), pos.getZ());
         entity.setYaw(spawn.getData().getFloat("Rotation"));
     }
 
     public void spawnEntity(ServerWorld world, ServerPlayerEntity plr) {
-        List<TemplateRegion> spawnList = spawns.toList();
-        TemplateRegion spawn = spawnList.get(new Random().nextInt(spawnList.size()));
+        TemplateRegion spawn = spawns.get(new Random().nextInt(spawns.size()));
         Vec3d pos = spawn.getBounds().centerBottom();
         plr.teleport(world, pos.getX(), pos.getY(), pos.getZ(), spawn.getData().getFloat("Rotation"), 0);
         this.playerSpawnPos.put(new PlayerRef(plr.getUuid()), pos);
