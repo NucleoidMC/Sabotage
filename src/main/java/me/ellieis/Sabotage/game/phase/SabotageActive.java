@@ -14,6 +14,9 @@ import me.ellieis.Sabotage.game.map.SabotageMap;
 import me.ellieis.Sabotage.game.statistics.KarmaManager;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.network.message.MessageType;
+import net.minecraft.network.message.SentMessage;
+import net.minecraft.network.message.SignedMessage;
 import net.minecraft.network.packet.s2c.play.PositionFlag;
 import net.minecraft.screen.ScreenTexts;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -36,6 +39,7 @@ import xyz.nucleoid.plasmid.game.player.PlayerSet;
 import xyz.nucleoid.plasmid.game.rule.GameRuleType;
 import xyz.nucleoid.plasmid.util.PlayerRef;
 import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
+import xyz.nucleoid.stimuli.event.player.ReplacePlayerChatEvent;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -201,6 +205,20 @@ public class SabotageActive {
         }
         return Roles.NONE;
     }
+    public static Formatting getRoleColor(Roles role) {
+        return (role == Roles.INNOCENT) ? Formatting.GREEN :
+                (role == Roles.DETECTIVE) ? Formatting.DARK_BLUE :
+                        (role == Roles.SABOTEUR) ? Formatting.RED : Formatting.RESET;
+    }
+    private Text createAttackerKillMessage(ServerPlayerEntity plr, int karma) {
+        Roles role = getPlayerRole(plr);
+        Formatting victimColor = getRoleColor(role);
+        return Text.translatable(
+                "sabotage.kill_message_attacker",
+                plr.getName().copy().formatted(victimColor),
+                Text.literal("(" + karma + " karma)").formatted((karma >= 0) ? Formatting.GREEN : Formatting.RED)).formatted(Formatting.YELLOW);
+    }
+
     public void Start() {
         gameState = GameStates.ACTIVE;
         pickRoles();
@@ -228,7 +246,7 @@ public class SabotageActive {
             rules(activity);
             activity.listen(GameActivityEvents.TICK, game::onTick);
             activity.listen(PlayerDeathEvent.EVENT, game::onDeath);
-
+            activity.listen(ReplacePlayerChatEvent.EVENT, game::onChat);
             PlayerSet plrs = game.gameSpace.getPlayers();
 
             plrs.showTitle(Text.literal(Integer.toString(game.config.getCountdownTime())).formatted(Formatting.GOLD), 20);
@@ -239,16 +257,18 @@ public class SabotageActive {
             });
         });
     }
-    private Text createAttackerKillMessage(ServerPlayerEntity plr, int karma) {
-        Roles role = getPlayerRole(plr);
-        Formatting victimColor = (role == Roles.INNOCENT) ? Formatting.GREEN :
-                (role == Roles.DETECTIVE) ? Formatting.DARK_BLUE :
-                        (role == Roles.SABOTEUR) ? Formatting.RED : Formatting.RESET;
-        return Text.translatable(
-                "sabotage.kill_message_attacker",
-                plr.getName().copy().formatted(victimColor),
-                Text.literal("(" + karma + " karma)").formatted((karma >= 0) ? Formatting.GREEN : Formatting.RED)).formatted(Formatting.YELLOW);
+
+    private boolean onChat(ServerPlayerEntity plr, SignedMessage signedMessage, MessageType.Parameters parameters) {
+        if (gameState == GameStates.ACTIVE) {
+            detectives.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+            innocents.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+            saboteurs.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(getRoleColor(getPlayerRole(plr))).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+            SentMessage.of(signedMessage);
+            return true;
+        }
+        return false;
     }
+
     private ActionResult onDeath(ServerPlayerEntity plr, DamageSource damageSource) {
         Entity entityAttacker = damageSource.getAttacker();
 
@@ -289,6 +309,7 @@ public class SabotageActive {
                 }
             }
         }
+
         MutablePlayerSet plrs = new MutablePlayerSet(gameSpace.getServer());
         gameSpace.getPlayers().forEach(player -> {
             if (!player.equals(entityAttacker)) {
