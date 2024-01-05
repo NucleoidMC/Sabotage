@@ -53,14 +53,14 @@ public class SabotageWaiting {
         SabotageConfig config = context.game().config();
         MinecraftServer server = context.server();
         // set up how the world that this minigame will take place in should be constructed
-        SabotageMap map = SabotageMapBuilder.build(server, config.getMap());
+        SabotageMap map = SabotageMapBuilder.build(server, config.map());
         RuntimeWorldConfig worldConfig = new RuntimeWorldConfig()
                 .setGenerator(map.asChunkGenerator(server))
                 .setTimeOfDay(6000);
 
         return context.openWithWorld(worldConfig, (activity, world) -> {
             SabotageWaiting game = new SabotageWaiting(config, activity.getGameSpace(), map, world);
-            GameWaitingLobby.addTo(activity, config.getPlayerConfig());
+            GameWaitingLobby.addTo(activity, config.playerConfig());
 
             rules(activity);
             activity.listen(GamePlayerEvents.OFFER, game::onOffer);

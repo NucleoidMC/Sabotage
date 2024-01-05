@@ -57,8 +57,11 @@ public class SabotageActive {
     private final MutablePlayerSet saboteurs;
     private final MutablePlayerSet detectives;
     private final MutablePlayerSet innocents;
+    // used in the game end message to list all saboteurs
+    private PlayerSet initialSaboteurs;
     private final KarmaManager karmaManager;
     private long startTime;
+    private long endTime;
     private GameActivity activity;
     private GameStates gameState = GameStates.COUNTDOWN;
     private GlobalWidgets widgets;
@@ -102,8 +105,10 @@ public class SabotageActive {
     private static String getPlayerNamesInSet(PlayerSet plrs) {
         String result = "";
         for (ServerPlayerEntity plr : plrs) {
-            result = result + plr.getName() + ", ";
+            result = result + plr.getName().getString() + ", ";
         }
+        // get rid of the last comma
+        result = result.substring(0, result.length() - 2);
         return result;
     }
 
@@ -117,7 +122,7 @@ public class SabotageActive {
         return plrs;
     }
     public void updateSidebars() {
-        long timeLeft = (long) Math.abs(Math.floor((world.getTime() / 20) - (startTime / 20)) - config.getCountdownTime() - config.getGracePeriod() - config.getTimeLimit());
+        long timeLeft = (long) Math.abs(Math.floor((world.getTime() / 20) - (startTime / 20)) - config.countdownTime() - config.gracePeriod() - config.timeLimit());
         long minutes = timeLeft / 60;
         String seconds = Long.toString(timeLeft % 60);
         if (seconds.length() == 1) {
@@ -203,6 +208,7 @@ public class SabotageActive {
                 innocents.add(plr);
             }
         }
+        initialSaboteurs = saboteurs.copy(gameSpace.getServer());
         innocents.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.innocent").formatted(Formatting.GREEN)), 10, 80, 10);
         innocents.playSound(SoundEvents.ENTITY_ILLUSIONER_CAST_SPELL);
         detectives.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.detective").formatted(Formatting.DARK_BLUE)), 10, 80, 10);
@@ -255,8 +261,29 @@ public class SabotageActive {
     }
 
     public void End(EndReason endReason) {
+        if (endReason == EndReason.NONE) return;
+        if (gameState == GameStates.ENDED) return;
+        PlayerSet plrs = gameSpace.getPlayers();
+        endTime = world.getTime();
         gameState = GameStates.ENDED;
         rules(activity);
+        plrs.sendMessage(Text.translatable("sabotage.game_end", Text.literal(getPlayerNamesInSet(initialSaboteurs)).formatted(Formatting.RED)));
+        if (endReason == EndReason.INNOCENT_WIN) {
+            plrs.sendMessage(Text.translatable(
+                    "sabotage.game_end.innocents",
+                    Text.translatable("sabotage.innocents").formatted(Formatting.GREEN),
+                    Text.translatable("sabotage.detectives").formatted(Formatting.DARK_BLUE),
+                    Text.translatable("sabotage.saboteurs").formatted(Formatting.RED)
+            ));
+        } else if (endReason == EndReason.SABOTEUR_WIN) {
+            plrs.sendMessage(Text.translatable(
+                    "sabotage.game_end.saboteurs",
+                    Text.translatable("sabotage.saboteurs").formatted(Formatting.RED),
+                    Text.translatable("sabotage.innocents").formatted(Formatting.GREEN)
+            ));
+        } else if (endReason == EndReason.TIMEOUT) {
+            plrs.sendMessage(Text.translatable("sabotage.game_end.none"));
+        }
     }
     public static void Open(GameSpace gameSpace, ServerWorld world, SabotageMap map, SabotageConfig config) {
         gameSpace.setActivity(activity -> {
@@ -276,7 +303,7 @@ public class SabotageActive {
             activity.listen(GamePlayerEvents.OFFER, game::onOffer);
 
             PlayerSet plrs = game.gameSpace.getPlayers();
-            plrs.showTitle(Text.literal(Integer.toString(game.config.getCountdownTime())).formatted(Formatting.GOLD), 20);
+            plrs.showTitle(Text.literal(Integer.toString(game.config.countdownTime())).formatted(Formatting.GOLD), 20);
             plrs.playSound(SoundEvents.BLOCK_NOTE_BLOCK_HARP.value(), SoundCategory.PLAYERS, 1.0F, 2.0F);
             plrs.forEach(plr -> {
                 game.map.spawnEntity(world, plr);
@@ -298,6 +325,9 @@ public class SabotageActive {
     }
 
     private ActionResult onDeath(ServerPlayerEntity plr, DamageSource damageSource) {
+        if (gameState == GameStates.ENDED) {
+            return ActionResult.FAIL;
+        }
         Entity entityAttacker = damageSource.getAttacker();
         Roles plrRole = getPlayerRole(plr);
         plr.changeGameMode(GameMode.SPECTATOR);
@@ -306,7 +336,7 @@ public class SabotageActive {
             // surely there's a better way to do this..
             switch(attackerRole) {
                 case SABOTEUR -> {
-                    SaboteurConfig config = this.config.getSaboteurConfig();
+                    SaboteurConfig config = this.config.saboteurConfig();
                     switch(plrRole) {
                         case INNOCENT -> {
                             karmaManager.incrementKarma(attacker, config.innocentKarmaAward());
@@ -326,12 +356,12 @@ public class SabotageActive {
                 }
 
                 case DETECTIVE -> {
-                    DetectiveConfig config = this.config.getDetectiveConfig();
+                    DetectiveConfig config = this.config.detectiveConfig();
                     awardPlayerKill(attacker, plr, plrRole, config.innocentKarmaPenalty(), config.detectiveKarmaPenalty(), config.saboteurKarmaAward());
                 }
 
                 case INNOCENT -> {
-                    InnocentConfig config = this.config.getInnocentConfig();
+                    InnocentConfig config = this.config.innocentConfig();
                     awardPlayerKill(attacker, plr, plrRole, config.innocentKarmaPenalty(), config.detectiveKarmaPenalty(), config.saboteurKarmaAward());
                 }
             }
@@ -376,14 +406,15 @@ public class SabotageActive {
         } else if (role == Roles.INNOCENT) {
             innocents.remove(plr);
         }
-
-        if (role != Roles.NONE) {
-            EndReason endReason = checkWinCondition();
-            if (endReason != EndReason.NONE) {
-                End(endReason);
-            } else {
-                PlayerSet plrs = getAlivePlayers();
-                plrs.sendMessage(Text.translatable("sabotage.kill_message", plr.getName(), plrs.size() - 1).formatted(Formatting.YELLOW));
+        if (gameState != GameStates.ENDED) {
+            if (role != Roles.NONE) {
+                EndReason endReason = checkWinCondition();
+                if (endReason != EndReason.NONE) {
+                    End(endReason);
+                } else {
+                    PlayerSet plrs = getAlivePlayers();
+                    plrs.sendMessage(Text.translatable("sabotage.kill_message", plr.getName(), plrs.size() - 1).formatted(Formatting.YELLOW));
+                }
             }
         }
     }
@@ -416,11 +447,11 @@ public class SabotageActive {
                     // second has passed
                     PlayerSet plrs = gameSpace.getPlayers();
                     int secondsSinceStart = (int) Math.floor((time / 20) - (startTime / 20));
-                    int countdownTime = config.getCountdownTime();
+                    int countdownTime = config.countdownTime();
                     if (secondsSinceStart >= countdownTime) {
                         gameState = GameStates.GRACE_PERIOD;
                         plrs.playSound(SoundEvents.BLOCK_RESPAWN_ANCHOR_CHARGE);
-                        plrs.sendMessage(Text.translatable("sabotage.game_start", config.getGracePeriod()).formatted(Formatting.YELLOW));
+                        plrs.sendMessage(Text.translatable("sabotage.game_start", config.gracePeriod()).formatted(Formatting.YELLOW));
                     } else {
                         plrs.showTitle(Text.literal(Integer.toString(countdownTime - secondsSinceStart)).formatted(Formatting.GOLD), 20);
                         plrs.playSound(SoundEvents.BLOCK_NOTE_BLOCK_HARP.value(), SoundCategory.PLAYERS, 1.0F, 2.0F);
@@ -437,8 +468,8 @@ public class SabotageActive {
             }
 
             case GRACE_PERIOD -> {
-                int secondsSinceStart = (int) Math.floor((time / 20) - (startTime / 20)) - config.getCountdownTime();
-                int gracePeriod = config.getGracePeriod();
+                int secondsSinceStart = (int) Math.floor((time / 20) - (startTime / 20)) - config.countdownTime();
+                int gracePeriod = config.gracePeriod();
                 if (secondsSinceStart >= gracePeriod) {
                     Start();
                 } else {
@@ -448,11 +479,10 @@ public class SabotageActive {
             }
 
             case ACTIVE -> {
-                // to-do: implement game loop
                 if (time % 20 == 0) {
                     // second has passed
-                    double timePassed = Math.floor((world.getTime() / 20) - (startTime / 20)) - config.getCountdownTime() - config.getGracePeriod();
-                    int timeLimit = config.getTimeLimit();
+                    double timePassed = Math.floor((world.getTime() / 20) - (startTime / 20)) - config.countdownTime() - config.gracePeriod();
+                    int timeLimit = config.timeLimit();
                     if (timePassed >= timeLimit) {
                         End(EndReason.TIMEOUT);
                         return;
@@ -466,8 +496,13 @@ public class SabotageActive {
             }
 
             case ENDED -> {
-                // to-do: countdown before ending
-                gameSpace.close(GameCloseReason.FINISHED);
+                if (time % 20 == 0) {
+                    // second has passed
+                    double timePassed = world.getTime() / 20 - endTime / 20;
+                    if (timePassed >= config.endDelay()) {
+                        gameSpace.close(GameCloseReason.FINISHED);
+                    }
+                }
             }
             default -> {
                 // unknown state, close game.
