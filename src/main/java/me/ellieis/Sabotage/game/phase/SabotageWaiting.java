@@ -1,6 +1,6 @@
 package me.ellieis.Sabotage.game.phase;
 
-import me.ellieis.Sabotage.game.SabotageConfig;
+import me.ellieis.Sabotage.game.config.SabotageConfig;
 import me.ellieis.Sabotage.game.map.SabotageMap;
 import me.ellieis.Sabotage.game.map.SabotageMapBuilder;
 import net.minecraft.server.MinecraftServer;

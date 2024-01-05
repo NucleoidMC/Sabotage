@@ -4,8 +4,15 @@ import com.google.common.collect.ImmutableSet;
 import eu.pb4.sidebars.api.Sidebar;
 import eu.pb4.sidebars.api.lines.SidebarLine;
 import me.ellieis.Sabotage.game.GameStates;
-import me.ellieis.Sabotage.game.SabotageConfig;
+import me.ellieis.Sabotage.game.Roles;
+import me.ellieis.Sabotage.game.config.DetectiveConfig;
+import me.ellieis.Sabotage.game.config.InnocentConfig;
+import me.ellieis.Sabotage.game.config.SabotageConfig;
+import me.ellieis.Sabotage.game.config.SaboteurConfig;
 import me.ellieis.Sabotage.game.map.SabotageMap;
+import me.ellieis.Sabotage.game.statistics.KarmaManager;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.network.packet.s2c.play.PositionFlag;
 import net.minecraft.screen.ScreenTexts;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -13,8 +20,10 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
+import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.GameMode;
 import xyz.nucleoid.plasmid.game.GameActivity;
 import xyz.nucleoid.plasmid.game.GameCloseReason;
 import xyz.nucleoid.plasmid.game.GameSpace;
@@ -25,17 +34,18 @@ import xyz.nucleoid.plasmid.game.player.MutablePlayerSet;
 import xyz.nucleoid.plasmid.game.player.PlayerSet;
 import xyz.nucleoid.plasmid.game.rule.GameRuleType;
 import xyz.nucleoid.plasmid.util.PlayerRef;
+import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
 
-import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 public class SabotageActive {
     private final SabotageConfig config;
     private final GameSpace gameSpace;
     private final SabotageMap map;
     private final ServerWorld world;
-    private boolean gameStarted = false;
-    private boolean countdown = false;
     private long startTime;
     private GameActivity activity;
     private GameStates gameState = GameStates.COUNTDOWN;
@@ -47,6 +57,8 @@ public class SabotageActive {
     private SidebarWidget innocentSidebar;
     private SidebarWidget detectiveSidebar;
     private SidebarWidget saboteurSidebar;
+    private KarmaManager karmaManager;
+
     public SabotageActive(SabotageConfig config, GameSpace gameSpace, SabotageMap map, ServerWorld world) {
         this.config = config;
         this.gameSpace = gameSpace;
@@ -56,19 +68,21 @@ public class SabotageActive {
         this.saboteurs = new MutablePlayerSet(gameSpace.getServer());
         this.detectives = new MutablePlayerSet(gameSpace.getServer());
         this.innocents = new MutablePlayerSet(gameSpace.getServer());
+        this.karmaManager = new KarmaManager(gameSpace);
     }
     private static void gameStartedRules(GameActivity activity) {
         activity.allow(GameRuleType.FALL_DAMAGE);
         activity.allow(GameRuleType.PVP);
     }
     private static void rules(GameActivity activity) {
-        activity.deny(GameRuleType.FALL_DAMAGE);
         activity.allow(GameRuleType.INTERACTION);
         activity.allow(GameRuleType.PICKUP_ITEMS);
         activity.allow(GameRuleType.MODIFY_ARMOR);
         activity.allow(GameRuleType.MODIFY_INVENTORY);
-        activity.deny(GameRuleType.PVP);
         activity.allow(GameRuleType.THROW_ITEMS);
+        activity.deny(GameRuleType.FALL_DAMAGE);
+        activity.deny(GameRuleType.SATURATED_REGENERATION);
+        activity.deny(GameRuleType.PVP);
         activity.deny(GameRuleType.PORTALS);
         activity.deny(GameRuleType.HUNGER);
         activity.deny(GameRuleType.ICE_MELT);
@@ -93,11 +107,11 @@ public class SabotageActive {
     }
 
     public void setSidebars() {
-        this.saboteurSidebar = this.widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
+        saboteurSidebar = widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
         saboteurSidebar.setPriority(Sidebar.Priority.MEDIUM);
-        this.detectiveSidebar = this.widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
+        detectiveSidebar = widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
         detectiveSidebar.setPriority(Sidebar.Priority.MEDIUM);
-        this.innocentSidebar = this.widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
+        innocentSidebar = widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
         innocentSidebar.setPriority(Sidebar.Priority.MEDIUM);
 
         // saboteurs
@@ -139,7 +153,7 @@ public class SabotageActive {
     }
 
     public void pickRoles() {
-        PlayerSet plrs = this.gameSpace.getPlayers();
+        PlayerSet plrs = gameSpace.getPlayers();
         int playerCount = plrs.size();
         // need to make a new list from .toList to make it mutable
         List<ServerPlayerEntity> plrList = new ArrayList<>(plrs.stream().toList());
@@ -152,39 +166,53 @@ public class SabotageActive {
 
         for (ServerPlayerEntity plr : plrList) {
             if (detCount >= 1) {
-                this.detectives.add(plr);
+                detectives.add(plr);
                 detCount--;
             } else if (sabCount >= 1) {
-                this.saboteurs.add(plr);
+                saboteurs.add(plr);
                 sabCount--;
             } else {
-                this.innocents.add(plr);
+                innocents.add(plr);
             }
         }
-        this.innocents.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.innocent").formatted(Formatting.GREEN)), 10, 80, 10);
-        this.innocents.playSound(SoundEvents.ENTITY_ILLUSIONER_CAST_SPELL);
-        this.detectives.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.detective").formatted(Formatting.DARK_BLUE)), 10, 80, 10);
-        this.detectives.playSound(SoundEvents.BLOCK_AMETHYST_BLOCK_CHIME);
-        this.saboteurs.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.saboteur").formatted(Formatting.RED)), 10, 80, 10);
-        this.saboteurs.playSound(SoundEvents.ENTITY_ILLUSIONER_CAST_SPELL);
-        this.saboteurs.playSound(SoundEvents.AMBIENT_SOUL_SAND_VALLEY_MOOD.value());
+        innocents.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.innocent").formatted(Formatting.GREEN)), 10, 80, 10);
+        innocents.playSound(SoundEvents.ENTITY_ILLUSIONER_CAST_SPELL);
+        detectives.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.detective").formatted(Formatting.DARK_BLUE)), 10, 80, 10);
+        detectives.playSound(SoundEvents.BLOCK_AMETHYST_BLOCK_CHIME);
+        saboteurs.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.saboteur").formatted(Formatting.RED)), 10, 80, 10);
+        saboteurs.playSound(SoundEvents.ENTITY_ILLUSIONER_CAST_SPELL);
+        saboteurs.playSound(SoundEvents.AMBIENT_SOUL_SAND_VALLEY_MOOD.value());
         setSidebars();
     }
+    public Roles getPlayerRole(ServerPlayerEntity plr) {
+        if (innocents.contains(plr)) {
+            return Roles.INNOCENT;
+        } else if (detectives.contains(plr)) {
+            return Roles.DETECTIVE;
+        } else if (saboteurs.contains(plr)) {
+            return Roles.SABOTEUR;
+        }
+        return Roles.NONE;
+    }
     public void Start() {
-        this.gameState = GameStates.ACTIVE;
+        gameState = GameStates.ACTIVE;
         pickRoles();
-        gameStartedRules(this.activity);
+        gameStartedRules(activity);
+        gameSpace.getPlayers().forEach(plr -> {
+            karmaManager.setKarma(plr, 20);
+            plr.setExperiencePoints(plr.getNextLevelExperience() - 1);
+        });
+        // to-do: chest spawns
     }
 
     public void End() {
-        this.gameState = GameStates.ENDED;
-        rules(this.activity);
+        gameState = GameStates.ENDED;
+        rules(activity);
     }
     public static void Open(GameSpace gameSpace, ServerWorld world, SabotageMap map, SabotageConfig config) {
         gameSpace.setActivity(activity -> {
             SabotageActive game = new SabotageActive(config, gameSpace, map, world);
             game.startTime = world.getTime();
-            game.countdown = true;
             game.activity = activity;
             game.widgets = GlobalWidgets.addTo(activity);
             game.globalSidebar = game.widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
@@ -192,6 +220,7 @@ public class SabotageActive {
             game.globalSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.countdown")));
             rules(activity);
             activity.listen(GameActivityEvents.TICK, game::onTick);
+            activity.listen(PlayerDeathEvent.EVENT, game::onDeath);
 
             PlayerSet plrs = game.gameSpace.getPlayers();
 
@@ -204,19 +233,83 @@ public class SabotageActive {
         });
     }
 
+    private ActionResult onDeath(ServerPlayerEntity plr, DamageSource damageSource) {
+        Entity entityAttacker = damageSource.getAttacker();
+
+        plr.changeGameMode(GameMode.SPECTATOR);
+        if (entityAttacker instanceof ServerPlayerEntity attacker) {
+            Roles plrRole = getPlayerRole(plr);
+            Roles attackerRole = getPlayerRole(attacker);
+            // surely there's a better way to do this..
+            System.out.println(attackerRole);
+            System.out.println(plrRole);
+            switch(attackerRole) {
+                case SABOTEUR -> {
+                    SaboteurConfig config = this.config.getSaboteurConfig();
+                    switch(plrRole) {
+                        case INNOCENT -> {
+                            System.out.printf("Saboteur killed innocent, awarding %s karma%n", config.innocentKarmaAward());
+                            karmaManager.incrementKarma(attacker, config.innocentKarmaAward());
+                        }
+
+                        case DETECTIVE -> {
+                            System.out.printf("Saboteur killed detective, awarding %s karma%n", config.detectiveKarmaAward());
+                            karmaManager.incrementKarma(attacker, config.detectiveKarmaAward());
+                        }
+
+                        case SABOTEUR -> {
+                            System.out.printf("Saboteur killed saboteur, awarding %s karma penalty%n", config.saboteurKarmaPenalty());
+                            karmaManager.decrementKarma(attacker, config.saboteurKarmaPenalty());
+                        }
+                    }
+                }
+
+                case DETECTIVE -> {
+                    DetectiveConfig config = this.config.getDetectiveConfig();
+                    awardPlayerKill(attacker, plrRole, config.innocentKarmaPenalty(), config.detectiveKarmaPenalty(), config.saboteurKarmaAward());
+                }
+
+                case INNOCENT -> {
+                    InnocentConfig config = this.config.getInnocentConfig();
+                    awardPlayerKill(attacker, plrRole, config.innocentKarmaPenalty(), config.detectiveKarmaPenalty(), config.saboteurKarmaAward());
+                }
+            }
+        }
+        return ActionResult.FAIL;
+    }
+
+    private void awardPlayerKill(ServerPlayerEntity attacker, Roles plrRole, int innocentKarma, int detectiveKarma, int saboteurKarma) {
+        switch(plrRole) {
+            case INNOCENT -> {
+                System.out.printf("Innocent killed innocent, awarding %s karma penalty%n", innocentKarma);
+                karmaManager.decrementKarma(attacker, innocentKarma);
+            }
+
+            case DETECTIVE -> {
+                System.out.printf("Innocent killed detective, awarding %s karma penalty%n", detectiveKarma);
+                karmaManager.decrementKarma(attacker, detectiveKarma);
+            }
+
+            case SABOTEUR -> {
+                System.out.printf("Innocent killed saboteur, awarding %s karma%n", saboteurKarma);
+                karmaManager.incrementKarma(attacker, saboteurKarma);
+            }
+        }
+    }
+
     public void onTick() {
-        long time = this.world.getTime();
-        switch(this.gameState) {
+        long time = world.getTime();
+        switch(gameState) {
             case COUNTDOWN -> {
                 if (time % 20 == 0) {
                     // second has passed
-                    PlayerSet plrs = this.gameSpace.getPlayers();
-                    int secondsSinceStart = (int) Math.floor((time / 20) - (this.startTime / 20));
-                    int countdownTime = this.config.getCountdownTime();
+                    PlayerSet plrs = gameSpace.getPlayers();
+                    int secondsSinceStart = (int) Math.floor((time / 20) - (startTime / 20));
+                    int countdownTime = config.getCountdownTime();
                     if (secondsSinceStart >= countdownTime) {
-                        this.gameState = GameStates.GRACE_PERIOD;
+                        gameState = GameStates.GRACE_PERIOD;
                         plrs.playSound(SoundEvents.BLOCK_RESPAWN_ANCHOR_CHARGE);
-                        plrs.sendMessage(Text.translatable("sabotage.game_start", this.config.getGracePeriod()).formatted(Formatting.GOLD));
+                        plrs.sendMessage(Text.translatable("sabotage.game_start", config.getGracePeriod()).formatted(Formatting.GOLD));
                     } else {
                         plrs.showTitle(Text.literal(Integer.toString(countdownTime - secondsSinceStart)).formatted(Formatting.GOLD), 20);
                         plrs.playSound(SoundEvents.BLOCK_NOTE_BLOCK_HARP.value(), SoundCategory.PLAYERS, 1.0F, 2.0F);
@@ -224,7 +317,7 @@ public class SabotageActive {
                 }
                 // Make sure players don't move during countdown
                 for (ServerPlayerEntity plr : gameSpace.getPlayers()) {
-                    Vec3d pos = this.map.getPlayerSpawns().get(new PlayerRef(plr.getUuid()));
+                    Vec3d pos = map.getPlayerSpawns().get(new PlayerRef(plr.getUuid()));
                     // Set X and Y as relative so it will send 0 change when we pass yaw (yaw - yaw = 0) and pitch
                     Set<PositionFlag> flags = ImmutableSet.of(PositionFlag.X_ROT, PositionFlag.Y_ROT);
                     // Teleport without changing the pitch and yaw
@@ -233,8 +326,8 @@ public class SabotageActive {
             }
 
             case GRACE_PERIOD -> {
-                int secondsSinceStart = (int) Math.floor((time / 20) - (this.startTime / 20)) - this.config.getCountdownTime();
-                int gracePeriod = this.config.getGracePeriod();
+                int secondsSinceStart = (int) Math.floor((time / 20) - (startTime / 20)) - config.getCountdownTime();
+                int gracePeriod = config.getGracePeriod();
                 if (secondsSinceStart >= gracePeriod) {
                     Start();
                 } else {
@@ -246,13 +339,18 @@ public class SabotageActive {
             case ACTIVE -> {
                 // to-do: implement game loop
                 if (time % 20 == 0) {
-                    double timePassed = Math.floor((world.getTime() / 20) - (startTime / 20)) - config.getCountdownTime() - config.getGracePeriod();
                     // second has passed
-                    if (timePassed >= config.getTimeLimit()) {
+                    double timePassed = Math.floor((world.getTime() / 20) - (startTime / 20)) - config.getCountdownTime() - config.getGracePeriod();
+                    int timeLimit = config.getTimeLimit();
+                    if (timePassed >= timeLimit) {
                         End();
                         return;
                     }
                     updateSidebars();
+                    double factor = ((timeLimit - timePassed) / timeLimit);
+                    gameSpace.getPlayers().forEach(plr -> {
+                        plr.setExperiencePoints((int) (plr.getNextLevelExperience() * factor));
+                    });
                 }
             }
 

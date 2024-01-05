@@ -1,6 +1,6 @@
 package me.ellieis.Sabotage;
 
-import me.ellieis.Sabotage.game.SabotageConfig;
+import me.ellieis.Sabotage.game.config.SabotageConfig;
 import me.ellieis.Sabotage.game.phase.SabotageWaiting;
 import net.fabricmc.api.ModInitializer;
 
