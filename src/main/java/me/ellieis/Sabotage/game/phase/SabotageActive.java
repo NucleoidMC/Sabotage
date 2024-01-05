@@ -34,7 +34,10 @@ import xyz.nucleoid.plasmid.game.GameSpace;
 import xyz.nucleoid.plasmid.game.common.GlobalWidgets;
 import xyz.nucleoid.plasmid.game.common.widget.SidebarWidget;
 import xyz.nucleoid.plasmid.game.event.GameActivityEvents;
+import xyz.nucleoid.plasmid.game.event.GamePlayerEvents;
 import xyz.nucleoid.plasmid.game.player.MutablePlayerSet;
+import xyz.nucleoid.plasmid.game.player.PlayerOffer;
+import xyz.nucleoid.plasmid.game.player.PlayerOfferResult;
 import xyz.nucleoid.plasmid.game.player.PlayerSet;
 import xyz.nucleoid.plasmid.game.rule.GameRuleType;
 import xyz.nucleoid.plasmid.util.PlayerRef;
@@ -103,6 +106,16 @@ public class SabotageActive {
         }
         return result;
     }
+
+    private PlayerSet getAlivePlayers() {
+        MutablePlayerSet plrs = gameSpace.getPlayers().copy(gameSpace.getServer());
+        plrs.forEach(plr -> {
+            if (plr.isSpectator()) {
+                plrs.remove(plr);
+            }
+        });
+        return plrs;
+    }
     public void updateSidebars() {
         long timeLeft = (long) Math.abs(Math.floor((world.getTime() / 20) - (startTime / 20)) - config.getCountdownTime() - config.getGracePeriod() - config.getTimeLimit());
         long minutes = timeLeft / 60;
@@ -115,6 +128,7 @@ public class SabotageActive {
         saboteurSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.time_left", minutes, seconds)));        saboteurSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.time_left", minutes, seconds)));
         detectiveSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.time_left", minutes, seconds)));
         innocentSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.time_left", minutes, seconds)));
+        globalSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.time_left", minutes, seconds)));
     }
 
     public void setSidebars() {
@@ -152,6 +166,9 @@ public class SabotageActive {
                 ScreenTexts.EMPTY
         );
 
+        // global (spectators and dead players)
+        globalSidebar.setLine(0, Text.empty());
+
         gameSpace.getPlayers().forEach(plr -> {
             saboteurSidebar.removePlayer(plr);
             detectiveSidebar.removePlayer(plr);
@@ -164,7 +181,7 @@ public class SabotageActive {
     }
 
     public void pickRoles() {
-        PlayerSet plrs = gameSpace.getPlayers();
+        PlayerSet plrs = getAlivePlayers();
         int playerCount = plrs.size();
         // need to make a new list from .toList to make it mutable
         List<ServerPlayerEntity> plrList = new ArrayList<>(plrs.stream().toList());
@@ -218,12 +235,19 @@ public class SabotageActive {
                 plr.getName().copy().formatted(victimColor),
                 Text.literal("(" + karma + " karma)").formatted((karma >= 0) ? Formatting.GREEN : Formatting.RED)).formatted(Formatting.YELLOW);
     }
-
+    public EndReason checkWinCondition() {
+        if (saboteurs.isEmpty()) {
+            return EndReason.INNOCENT_WIN;
+        } else if (innocents.isEmpty() && detectives.isEmpty()) {
+            return EndReason.SABOTEUR_WIN;
+        }
+        return EndReason.NONE;
+    }
     public void Start() {
         gameState = GameStates.ACTIVE;
         pickRoles();
         gameStartedRules(activity);
-        gameSpace.getPlayers().forEach(plr -> {
+        getAlivePlayers().forEach(plr -> {
             karmaManager.setKarma(plr, 20);
             plr.setExperiencePoints(plr.getNextLevelExperience() - 1);
         });
@@ -243,12 +267,15 @@ public class SabotageActive {
             game.globalSidebar = game.widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
             game.globalSidebar.setPriority(Sidebar.Priority.LOW);
             game.globalSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.countdown")));
+
             rules(activity);
             activity.listen(GameActivityEvents.TICK, game::onTick);
             activity.listen(PlayerDeathEvent.EVENT, game::onDeath);
             activity.listen(ReplacePlayerChatEvent.EVENT, game::onChat);
-            PlayerSet plrs = game.gameSpace.getPlayers();
+            activity.listen(GamePlayerEvents.REMOVE, game::onPlayerRemove);
+            activity.listen(GamePlayerEvents.OFFER, game::onOffer);
 
+            PlayerSet plrs = game.gameSpace.getPlayers();
             plrs.showTitle(Text.literal(Integer.toString(game.config.getCountdownTime())).formatted(Formatting.GOLD), 20);
             plrs.playSound(SoundEvents.BLOCK_NOTE_BLOCK_HARP.value(), SoundCategory.PLAYERS, 1.0F, 2.0F);
             plrs.forEach(plr -> {
@@ -263,6 +290,7 @@ public class SabotageActive {
             detectives.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
             innocents.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
             saboteurs.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(getRoleColor(getPlayerRole(plr))).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+            // I have no idea what this is (or what it does), docs said to use it so I'm using it
             SentMessage.of(signedMessage);
             return true;
         }
@@ -271,10 +299,9 @@ public class SabotageActive {
 
     private ActionResult onDeath(ServerPlayerEntity plr, DamageSource damageSource) {
         Entity entityAttacker = damageSource.getAttacker();
-
+        Roles plrRole = getPlayerRole(plr);
         plr.changeGameMode(GameMode.SPECTATOR);
         if (entityAttacker instanceof ServerPlayerEntity attacker) {
-            Roles plrRole = getPlayerRole(plr);
             Roles attackerRole = getPlayerRole(attacker);
             // surely there's a better way to do this..
             switch(attackerRole) {
@@ -310,14 +337,55 @@ public class SabotageActive {
             }
         }
 
-        MutablePlayerSet plrs = new MutablePlayerSet(gameSpace.getServer());
-        gameSpace.getPlayers().forEach(player -> {
-            if (!player.equals(entityAttacker)) {
-                plrs.add(player);
+        if (plrRole == Roles.SABOTEUR) {
+            saboteurs.remove(plr);
+        } else if (plrRole == Roles.DETECTIVE) {
+            detectives.remove(plr);
+        } else if (plrRole == Roles.INNOCENT) {
+            innocents.remove(plr);
+        }
+
+        EndReason endReason = checkWinCondition();
+        if (endReason != EndReason.NONE) {
+            End(endReason);
+        } else {
+            MutablePlayerSet plrs = gameSpace.getPlayers().copy(gameSpace.getServer());
+            if (entityAttacker instanceof ServerPlayerEntity attacker) {
+                plrs.remove(attacker);
             }
-        });
-        plrs.sendMessage(Text.translatable("sabotage.kill_message", plr.getName(), plrs.size()).formatted(Formatting.YELLOW));
+
+            plrs.sendMessage(Text.translatable("sabotage.kill_message", plr.getName(), plrs.size()).formatted(Formatting.YELLOW));
+        }
         return ActionResult.FAIL;
+    }
+
+    private PlayerOfferResult onOffer(PlayerOffer offer) {
+        ServerPlayerEntity plr = offer.player();
+        return offer.accept(this.world, new Vec3d(0.0, 66.0, 0.0)).and(() -> {
+            // player joined after game start, so they're technically dead
+            plr.changeGameMode(GameMode.SPECTATOR);
+        });
+    }
+
+    private void onPlayerRemove(ServerPlayerEntity plr) {
+        Roles role = getPlayerRole(plr);
+        if (role == Roles.SABOTEUR) {
+            saboteurs.remove(plr);
+        } else if (role == Roles.DETECTIVE) {
+            detectives.remove(plr);
+        } else if (role == Roles.INNOCENT) {
+            innocents.remove(plr);
+        }
+
+        if (role != Roles.NONE) {
+            EndReason endReason = checkWinCondition();
+            if (endReason != EndReason.NONE) {
+                End(endReason);
+            } else {
+                PlayerSet plrs = getAlivePlayers();
+                plrs.sendMessage(Text.translatable("sabotage.kill_message", plr.getName(), plrs.size() - 1).formatted(Formatting.YELLOW));
+            }
+        }
     }
 
     private void awardPlayerKill(ServerPlayerEntity attacker, ServerPlayerEntity plr, Roles plrRole, int innocentKarma, int detectiveKarma, int saboteurKarma) {
@@ -359,7 +427,7 @@ public class SabotageActive {
                     }
                 }
                 // Make sure players don't move during countdown
-                for (ServerPlayerEntity plr : gameSpace.getPlayers()) {
+                for (ServerPlayerEntity plr : getAlivePlayers()) {
                     Vec3d pos = map.getPlayerSpawns().get(new PlayerRef(plr.getUuid()));
                     // Set X and Y as relative so it will send 0 change when we pass yaw (yaw - yaw = 0) and pitch
                     Set<PositionFlag> flags = ImmutableSet.of(PositionFlag.X_ROT, PositionFlag.Y_ROT);
@@ -391,7 +459,7 @@ public class SabotageActive {
                     }
                     updateSidebars();
                     double factor = ((timeLimit - timePassed) / timeLimit);
-                    gameSpace.getPlayers().forEach(plr -> {
+                    getAlivePlayers().forEach(plr -> {
                         plr.setExperiencePoints((int) (plr.getNextLevelExperience() * factor));
                     });
                 }
