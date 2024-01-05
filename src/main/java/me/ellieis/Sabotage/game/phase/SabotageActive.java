@@ -3,9 +3,11 @@ package me.ellieis.Sabotage.game.phase;
 import com.google.common.collect.ImmutableSet;
 import eu.pb4.sidebars.api.Sidebar;
 import eu.pb4.sidebars.api.lines.SidebarLine;
+import me.ellieis.Sabotage.game.GameStates;
 import me.ellieis.Sabotage.game.SabotageConfig;
 import me.ellieis.Sabotage.game.map.SabotageMap;
 import net.minecraft.network.packet.s2c.play.PositionFlag;
+import net.minecraft.screen.ScreenTexts;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
@@ -14,6 +16,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.Vec3d;
 import xyz.nucleoid.plasmid.game.GameActivity;
+import xyz.nucleoid.plasmid.game.GameCloseReason;
 import xyz.nucleoid.plasmid.game.GameSpace;
 import xyz.nucleoid.plasmid.game.common.GlobalWidgets;
 import xyz.nucleoid.plasmid.game.common.widget.SidebarWidget;
@@ -23,10 +26,8 @@ import xyz.nucleoid.plasmid.game.player.PlayerSet;
 import xyz.nucleoid.plasmid.game.rule.GameRuleType;
 import xyz.nucleoid.plasmid.util.PlayerRef;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Collections;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 public class SabotageActive {
     private final SabotageConfig config;
@@ -37,6 +38,7 @@ public class SabotageActive {
     private boolean countdown = false;
     private long startTime;
     private GameActivity activity;
+    private GameStates gameState = GameStates.COUNTDOWN;
     private final MutablePlayerSet saboteurs;
     private final MutablePlayerSet detectives;
     private final MutablePlayerSet innocents;
@@ -76,6 +78,66 @@ public class SabotageActive {
         activity.deny(GameRuleType.CRAFTING);
     }
 
+    public void updateSidebars() {
+        long timeLeft = (long) Math.abs(Math.floor((world.getTime() / 20) - (startTime / 20)) - config.getCountdownTime() - config.getGracePeriod() - config.getTimeLimit());
+        long minutes = timeLeft / 60;
+        String seconds = Long.toString(timeLeft % 60);
+        if (seconds.length() == 1) {
+            // Pad seconds with an extra 0 when only one digit
+            // If someone knows a better way to do this, be my guest
+            seconds = "0" + seconds;
+        }
+        saboteurSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.time_left", minutes, seconds)));        saboteurSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.time_left", minutes, seconds)));
+        detectiveSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.time_left", minutes, seconds)));
+        innocentSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.time_left", minutes, seconds)));
+    }
+
+    public void setSidebars() {
+        this.saboteurSidebar = this.widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
+        saboteurSidebar.setPriority(Sidebar.Priority.MEDIUM);
+        this.detectiveSidebar = this.widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
+        detectiveSidebar.setPriority(Sidebar.Priority.MEDIUM);
+        this.innocentSidebar = this.widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
+        innocentSidebar.setPriority(Sidebar.Priority.MEDIUM);
+
+        // saboteurs
+        saboteurSidebar.addLines(ScreenTexts.EMPTY,
+                Text.translatable("sabotage.sidebar.role", Text.translatable("sabotage.saboteur").formatted(Formatting.RED)),
+                Text.translatable("sabotage.sidebar.role.desc", Text.translatable("sabotage.innocents").formatted(Formatting.GREEN)),
+                ScreenTexts.EMPTY,
+                // this will be where the time left is located
+                ScreenTexts.EMPTY
+        );
+
+        // detectives
+        detectiveSidebar.addLines(ScreenTexts.EMPTY,
+                Text.translatable("sabotage.sidebar.role", Text.translatable("sabotage.detective").formatted(Formatting.DARK_BLUE)),
+                Text.translatable("sabotage.sidebar.role.desc", Text.translatable("sabotage.saboteurs").formatted(Formatting.RED)),
+                ScreenTexts.EMPTY,
+                // this will be where the time left is located
+                ScreenTexts.EMPTY
+        );
+
+        // innocents
+        innocentSidebar.addLines(ScreenTexts.EMPTY,
+                Text.translatable("sabotage.sidebar.role", Text.translatable("sabotage.innocent").formatted(Formatting.GREEN)),
+                Text.translatable("sabotage.sidebar.role.desc", Text.translatable("sabotage.saboteurs").formatted(Formatting.RED)),
+                ScreenTexts.EMPTY,
+                // this will be where the time left is located
+                ScreenTexts.EMPTY
+        );
+
+        gameSpace.getPlayers().forEach(plr -> {
+            saboteurSidebar.removePlayer(plr);
+            detectiveSidebar.removePlayer(plr);
+            innocentSidebar.removePlayer(plr);
+        });
+        saboteurs.forEach(plr -> saboteurSidebar.addPlayer(plr));
+        detectives.forEach(plr -> detectiveSidebar.addPlayer(plr));
+        innocents.forEach(plr -> innocentSidebar.addPlayer(plr));
+        updateSidebars();
+    }
+
     public void pickRoles() {
         PlayerSet plrs = this.gameSpace.getPlayers();
         int playerCount = plrs.size();
@@ -106,11 +168,17 @@ public class SabotageActive {
         this.saboteurs.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.saboteur").formatted(Formatting.RED)), 10, 80, 10);
         this.saboteurs.playSound(SoundEvents.ENTITY_ILLUSIONER_CAST_SPELL);
         this.saboteurs.playSound(SoundEvents.AMBIENT_SOUL_SAND_VALLEY_MOOD.value());
+        setSidebars();
     }
     public void Start() {
-        this.gameStarted = true;
+        this.gameState = GameStates.ACTIVE;
         pickRoles();
         gameStartedRules(this.activity);
+    }
+
+    public void End() {
+        this.gameState = GameStates.ENDED;
+        rules(this.activity);
     }
     public static void Open(GameSpace gameSpace, ServerWorld world, SabotageMap map, SabotageConfig config) {
         gameSpace.setActivity(activity -> {
@@ -138,15 +206,15 @@ public class SabotageActive {
 
     public void onTick() {
         long time = this.world.getTime();
-        if (!gameStarted) {
-            if (this.countdown) {
+        switch(this.gameState) {
+            case COUNTDOWN -> {
                 if (time % 20 == 0) {
                     // second has passed
                     PlayerSet plrs = this.gameSpace.getPlayers();
                     int secondsSinceStart = (int) Math.floor((time / 20) - (this.startTime / 20));
                     int countdownTime = this.config.getCountdownTime();
                     if (secondsSinceStart >= countdownTime) {
-                        this.countdown = false;
+                        this.gameState = GameStates.GRACE_PERIOD;
                         plrs.playSound(SoundEvents.BLOCK_RESPAWN_ANCHOR_CHARGE);
                         plrs.sendMessage(Text.translatable("sabotage.game_start", this.config.getGracePeriod()).formatted(Formatting.GOLD));
                     } else {
@@ -162,8 +230,9 @@ public class SabotageActive {
                     // Teleport without changing the pitch and yaw
                     plr.networkHandler.requestTeleport(pos.getX(), pos.getY(), pos.getZ(), plr.getYaw(), plr.getPitch(), flags);
                 }
-            } else {
-                // to-do: implement grace period
+            }
+
+            case GRACE_PERIOD -> {
                 int secondsSinceStart = (int) Math.floor((time / 20) - (this.startTime / 20)) - this.config.getCountdownTime();
                 int gracePeriod = this.config.getGracePeriod();
                 if (secondsSinceStart >= gracePeriod) {
@@ -173,8 +242,27 @@ public class SabotageActive {
                     this.globalSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.grace_period." + ((secondsLeft == 1) ? "singular" : "plural"), secondsLeft)));
                 }
             }
-        } else {
-            // to-do: implement game loop
+
+            case ACTIVE -> {
+                // to-do: implement game loop
+                if (time % 20 == 0) {
+                    double timePassed = Math.floor((world.getTime() / 20) - (startTime / 20)) - config.getCountdownTime() - config.getGracePeriod();
+                    // second has passed
+                    if (timePassed >= config.getTimeLimit()) {
+                        End();
+                        return;
+                    }
+                    updateSidebars();
+                }
+            }
+
+            case ENDED -> {
+                // to-do: countdown before ending
+                gameSpace.close(GameCloseReason.FINISHED);
+            }
+            default -> {
+                // unknown state, noop.
+            }
         }
     }
 }
