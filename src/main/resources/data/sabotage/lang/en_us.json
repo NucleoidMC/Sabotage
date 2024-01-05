@@ -15,5 +15,7 @@
   "sabotage.detective": "Detective",
   "sabotage.detectives": "Detectives",
   "sabotage.saboteur": "Saboteur",
-  "sabotage.saboteurs": "Saboteurs"
+  "sabotage.saboteurs": "Saboteurs",
+  "sabotage.kill_message": "%s was killed. %s players remain.",
+  "sabotage.kill_message_attacker": "You killed %s %s"
 }

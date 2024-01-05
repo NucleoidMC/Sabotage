@@ -8,10 +8,8 @@ import static me.ellieis.Sabotage.Sabotage.MOD_ID;
 import static me.ellieis.Sabotage.game.statistics.SabotagePlayerStatistics.KARMA;
 
 public class KarmaManager {
-    private final GameSpace gameSpace;
     private final GameStatisticBundle stats;
     public KarmaManager(GameSpace gameSpace) {
-        this.gameSpace = gameSpace;
         stats = gameSpace.getStatistics().bundle(MOD_ID);
     }
     public int getKarma(ServerPlayerEntity plr) {

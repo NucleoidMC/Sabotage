@@ -3,6 +3,7 @@ package me.ellieis.Sabotage.game.phase;
 import com.google.common.collect.ImmutableSet;
 import eu.pb4.sidebars.api.Sidebar;
 import eu.pb4.sidebars.api.lines.SidebarLine;
+import me.ellieis.Sabotage.game.EndReason;
 import me.ellieis.Sabotage.game.GameStates;
 import me.ellieis.Sabotage.game.Roles;
 import me.ellieis.Sabotage.game.config.DetectiveConfig;
@@ -46,18 +47,18 @@ public class SabotageActive {
     private final GameSpace gameSpace;
     private final SabotageMap map;
     private final ServerWorld world;
-    private long startTime;
-    private GameActivity activity;
-    private GameStates gameState = GameStates.COUNTDOWN;
     private final MutablePlayerSet saboteurs;
     private final MutablePlayerSet detectives;
     private final MutablePlayerSet innocents;
+    private final KarmaManager karmaManager;
+    private long startTime;
+    private GameActivity activity;
+    private GameStates gameState = GameStates.COUNTDOWN;
     private GlobalWidgets widgets;
     private SidebarWidget globalSidebar;
     private SidebarWidget innocentSidebar;
     private SidebarWidget detectiveSidebar;
     private SidebarWidget saboteurSidebar;
-    private KarmaManager karmaManager;
 
     public SabotageActive(SabotageConfig config, GameSpace gameSpace, SabotageMap map, ServerWorld world) {
         this.config = config;
@@ -91,7 +92,13 @@ public class SabotageActive {
         activity.deny(GameRuleType.BREAK_BLOCKS);
         activity.deny(GameRuleType.CRAFTING);
     }
-
+    private static String getPlayerNamesInSet(PlayerSet plrs) {
+        String result = "";
+        for (ServerPlayerEntity plr : plrs) {
+            result = result + plr.getName() + ", ";
+        }
+        return result;
+    }
     public void updateSidebars() {
         long timeLeft = (long) Math.abs(Math.floor((world.getTime() / 20) - (startTime / 20)) - config.getCountdownTime() - config.getGracePeriod() - config.getTimeLimit());
         long minutes = timeLeft / 60;
@@ -205,7 +212,7 @@ public class SabotageActive {
         // to-do: chest spawns
     }
 
-    public void End() {
+    public void End(EndReason endReason) {
         gameState = GameStates.ENDED;
         rules(activity);
     }
@@ -232,7 +239,16 @@ public class SabotageActive {
             });
         });
     }
-
+    private Text createAttackerKillMessage(ServerPlayerEntity plr, int karma) {
+        Roles role = getPlayerRole(plr);
+        Formatting victimColor = (role == Roles.INNOCENT) ? Formatting.GREEN :
+                (role == Roles.DETECTIVE) ? Formatting.DARK_BLUE :
+                        (role == Roles.SABOTEUR) ? Formatting.RED : Formatting.RESET;
+        return Text.translatable(
+                "sabotage.kill_message_attacker",
+                plr.getName().copy().formatted(victimColor),
+                Text.literal("(" + karma + " karma)").formatted((karma >= 0) ? Formatting.GREEN : Formatting.RED)).formatted(Formatting.YELLOW);
+    }
     private ActionResult onDeath(ServerPlayerEntity plr, DamageSource damageSource) {
         Entity entityAttacker = damageSource.getAttacker();
 
@@ -241,58 +257,64 @@ public class SabotageActive {
             Roles plrRole = getPlayerRole(plr);
             Roles attackerRole = getPlayerRole(attacker);
             // surely there's a better way to do this..
-            System.out.println(attackerRole);
-            System.out.println(plrRole);
             switch(attackerRole) {
                 case SABOTEUR -> {
                     SaboteurConfig config = this.config.getSaboteurConfig();
                     switch(plrRole) {
                         case INNOCENT -> {
-                            System.out.printf("Saboteur killed innocent, awarding %s karma%n", config.innocentKarmaAward());
                             karmaManager.incrementKarma(attacker, config.innocentKarmaAward());
+                            attacker.sendMessage(createAttackerKillMessage(plr, config.innocentKarmaAward()));
                         }
 
                         case DETECTIVE -> {
-                            System.out.printf("Saboteur killed detective, awarding %s karma%n", config.detectiveKarmaAward());
                             karmaManager.incrementKarma(attacker, config.detectiveKarmaAward());
+                            attacker.sendMessage(createAttackerKillMessage(plr, config.detectiveKarmaAward()));
                         }
 
                         case SABOTEUR -> {
-                            System.out.printf("Saboteur killed saboteur, awarding %s karma penalty%n", config.saboteurKarmaPenalty());
                             karmaManager.decrementKarma(attacker, config.saboteurKarmaPenalty());
+                            attacker.sendMessage(createAttackerKillMessage(plr, -config.saboteurKarmaPenalty()));
                         }
                     }
                 }
 
                 case DETECTIVE -> {
                     DetectiveConfig config = this.config.getDetectiveConfig();
-                    awardPlayerKill(attacker, plrRole, config.innocentKarmaPenalty(), config.detectiveKarmaPenalty(), config.saboteurKarmaAward());
+                    awardPlayerKill(attacker, plr, plrRole, config.innocentKarmaPenalty(), config.detectiveKarmaPenalty(), config.saboteurKarmaAward());
                 }
 
                 case INNOCENT -> {
                     InnocentConfig config = this.config.getInnocentConfig();
-                    awardPlayerKill(attacker, plrRole, config.innocentKarmaPenalty(), config.detectiveKarmaPenalty(), config.saboteurKarmaAward());
+                    awardPlayerKill(attacker, plr, plrRole, config.innocentKarmaPenalty(), config.detectiveKarmaPenalty(), config.saboteurKarmaAward());
                 }
             }
         }
+        MutablePlayerSet plrs = new MutablePlayerSet(gameSpace.getServer());
+        gameSpace.getPlayers().forEach(player -> {
+            if (!player.equals(entityAttacker)) {
+                plrs.add(player);
+            }
+        });
+        plrs.sendMessage(Text.translatable("sabotage.kill_message", plr.getName(), plrs.size()).formatted(Formatting.YELLOW));
         return ActionResult.FAIL;
     }
 
-    private void awardPlayerKill(ServerPlayerEntity attacker, Roles plrRole, int innocentKarma, int detectiveKarma, int saboteurKarma) {
+    private void awardPlayerKill(ServerPlayerEntity attacker, ServerPlayerEntity plr, Roles plrRole, int innocentKarma, int detectiveKarma, int saboteurKarma) {
+        // attacker is confirmed innocent or detective
         switch(plrRole) {
             case INNOCENT -> {
-                System.out.printf("Innocent killed innocent, awarding %s karma penalty%n", innocentKarma);
                 karmaManager.decrementKarma(attacker, innocentKarma);
+                attacker.sendMessage(createAttackerKillMessage(plr, -innocentKarma));
             }
 
             case DETECTIVE -> {
-                System.out.printf("Innocent killed detective, awarding %s karma penalty%n", detectiveKarma);
                 karmaManager.decrementKarma(attacker, detectiveKarma);
+                attacker.sendMessage(createAttackerKillMessage(plr, -detectiveKarma));
             }
 
             case SABOTEUR -> {
-                System.out.printf("Innocent killed saboteur, awarding %s karma%n", saboteurKarma);
                 karmaManager.incrementKarma(attacker, saboteurKarma);
+                attacker.sendMessage(createAttackerKillMessage(plr, saboteurKarma));
             }
         }
     }
@@ -309,7 +331,7 @@ public class SabotageActive {
                     if (secondsSinceStart >= countdownTime) {
                         gameState = GameStates.GRACE_PERIOD;
                         plrs.playSound(SoundEvents.BLOCK_RESPAWN_ANCHOR_CHARGE);
-                        plrs.sendMessage(Text.translatable("sabotage.game_start", config.getGracePeriod()).formatted(Formatting.GOLD));
+                        plrs.sendMessage(Text.translatable("sabotage.game_start", config.getGracePeriod()).formatted(Formatting.YELLOW));
                     } else {
                         plrs.showTitle(Text.literal(Integer.toString(countdownTime - secondsSinceStart)).formatted(Formatting.GOLD), 20);
                         plrs.playSound(SoundEvents.BLOCK_NOTE_BLOCK_HARP.value(), SoundCategory.PLAYERS, 1.0F, 2.0F);
@@ -343,7 +365,7 @@ public class SabotageActive {
                     double timePassed = Math.floor((world.getTime() / 20) - (startTime / 20)) - config.getCountdownTime() - config.getGracePeriod();
                     int timeLimit = config.getTimeLimit();
                     if (timePassed >= timeLimit) {
-                        End();
+                        End(EndReason.TIMEOUT);
                         return;
                     }
                     updateSidebars();
@@ -359,7 +381,8 @@ public class SabotageActive {
                 gameSpace.close(GameCloseReason.FINISHED);
             }
             default -> {
-                // unknown state, noop.
+                // unknown state, close game.
+                gameSpace.close(GameCloseReason.ERRORED);
             }
         }
     }
