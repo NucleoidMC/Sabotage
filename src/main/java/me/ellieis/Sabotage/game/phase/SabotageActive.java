@@ -309,6 +309,7 @@ public class SabotageActive {
             activity.listen(GamePlayerEvents.REMOVE, game::onPlayerRemove);
             activity.listen(GamePlayerEvents.OFFER, game::onOffer);
             activity.listen(GameActivityEvents.DESTROY, game::onDestroy);
+            map.setWorld(world);
             map.generateChests();
             PlayerSet plrs = game.gameSpace.getPlayers();
             plrs.showTitle(Text.literal(Integer.toString(game.config.countdownTime())).formatted(Formatting.GOLD), 20);

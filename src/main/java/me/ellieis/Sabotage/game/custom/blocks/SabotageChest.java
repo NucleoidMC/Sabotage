@@ -24,6 +24,15 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
         return this.virtualBlock;
     }
 
+    public Block getPolymerBlock() {
+        return this.virtualBlock;
+    }
+
+    @Override
+    public BlockState getPolymerBlockState(BlockState state) {
+        return this.virtualBlock.getStateWithProperties(state);
+    }
+
     public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
         return new SabotageChestBlockEntity(pos, state);
     }

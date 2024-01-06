@@ -24,7 +24,7 @@ import net.minecraft.world.World;
 
 
 public class SabotageBlocks {
-    public static final Block SABOTAGE_CHEST = new SabotageChest(AbstractBlock.Settings.copy(Blocks.CHEST).dropsNothing(), Blocks.CHEST);
+    public static final SabotageChest SABOTAGE_CHEST = new SabotageChest(AbstractBlock.Settings.copy(Blocks.CHEST).dropsNothing(), Blocks.CHEST);
 
     public static final BlockEntityType<SabotageChestBlockEntity> SABOTAGE_CHEST_ENTITY = FabricBlockEntityTypeBuilder.create(SabotageChestBlockEntity::new, SABOTAGE_CHEST).build(null);
     public static void register() {
@@ -44,14 +44,15 @@ public class SabotageBlocks {
                 break;
             }
         }
-        if (isInGame) {
-            if (blockHitResult != null) {
-                Block block = world.getBlockState(blockHitResult.getBlockPos()).getBlock();
-                if (block instanceof SabotageChest) {
+
+        if (blockHitResult != null) {
+            Block block = world.getBlockState(blockHitResult.getBlockPos()).getBlock();
+            if (block instanceof SabotageChest) {
+                if (isInGame) {
                     plr.playSound(SoundEvents.BLOCK_CHEST_CLOSE, SoundCategory.BLOCKS, 1, 1.2f);
                     world.setBlockState(blockHitResult.getBlockPos(), Blocks.AIR.getDefaultState());
-                    return ActionResult.FAIL;
                 }
+                return ActionResult.FAIL;
             }
         }
         return ActionResult.PASS;
