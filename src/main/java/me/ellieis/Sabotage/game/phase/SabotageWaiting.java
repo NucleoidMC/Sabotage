@@ -53,7 +53,7 @@ public class SabotageWaiting {
         SabotageConfig config = context.game().config();
         MinecraftServer server = context.server();
         // set up how the world that this minigame will take place in should be constructed
-        SabotageMap map = SabotageMapBuilder.build(server, config.map());
+        SabotageMap map = SabotageMapBuilder.build(server, config.map(), config);
         RuntimeWorldConfig worldConfig = new RuntimeWorldConfig()
                 .setGenerator(map.asChunkGenerator(server))
                 .setTimeOfDay(6000);

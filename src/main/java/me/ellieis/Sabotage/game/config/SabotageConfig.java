@@ -5,7 +5,7 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.util.Identifier;
 import xyz.nucleoid.plasmid.game.common.config.PlayerConfig;
 
-public record SabotageConfig(Identifier map, int countdownTime, int gracePeriod, int timeLimit, int endDelay, InnocentConfig innocentConfig, DetectiveConfig detectiveConfig, SaboteurConfig saboteurConfig, PlayerConfig playerConfig) {
+public record SabotageConfig(Identifier map, int countdownTime, int gracePeriod, int timeLimit, int endDelay, int chestCount, InnocentConfig innocentConfig, DetectiveConfig detectiveConfig, SaboteurConfig saboteurConfig, PlayerConfig playerConfig) {
     public static final Codec<SabotageConfig> CODEC = RecordCodecBuilder.create(instance ->
         instance.group(
                 Identifier.CODEC.fieldOf("map").forGetter(SabotageConfig::map),
@@ -13,6 +13,7 @@ public record SabotageConfig(Identifier map, int countdownTime, int gracePeriod,
                 Codec.INT.fieldOf("grace_period").forGetter(SabotageConfig::gracePeriod),
                 Codec.INT.fieldOf("time_limit").forGetter(SabotageConfig::timeLimit),
                 Codec.INT.fieldOf("end_delay").forGetter(SabotageConfig::endDelay),
+                Codec.INT.fieldOf("chest_count").forGetter(SabotageConfig::chestCount),
                 InnocentConfig.CODEC.fieldOf("innocent").forGetter(SabotageConfig::innocentConfig),
                 DetectiveConfig.CODEC.fieldOf("detective").forGetter(SabotageConfig::detectiveConfig),
                 SaboteurConfig.CODEC.fieldOf("saboteur").forGetter(SabotageConfig::saboteurConfig),

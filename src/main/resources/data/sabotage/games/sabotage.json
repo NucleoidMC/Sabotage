@@ -5,6 +5,7 @@
   "grace_period": 15,
   "time_limit": 100,
   "end_delay": 10,
+  "chest_count": 1,
   "innocent": {
     "innocent_karma_penalty": 20,
     "detective_karma_penalty": 100,

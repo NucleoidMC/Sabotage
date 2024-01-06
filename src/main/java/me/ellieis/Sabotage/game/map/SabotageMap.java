@@ -1,5 +1,6 @@
 package me.ellieis.Sabotage.game.map;
 
+import me.ellieis.Sabotage.game.config.SabotageConfig;
 import me.ellieis.Sabotage.game.custom.blocks.SabotageChest;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
@@ -17,17 +18,18 @@ import xyz.nucleoid.plasmid.game.GameOpenException;
 import xyz.nucleoid.plasmid.game.world.generator.TemplateChunkGenerator;
 import xyz.nucleoid.plasmid.util.PlayerRef;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
+
+import static me.ellieis.Sabotage.game.custom.SabotageBlocks.SABOTAGE_CHEST;
 
 public class SabotageMap {
+    private final SabotageConfig config;
     private final MapTemplate template;
     private final List<TemplateRegion> spawns;
     private final Map<PlayerRef, Vec3d> playerSpawnPos = new HashMap<>();
 
-    public SabotageMap(MapTemplate template) {
+    public SabotageMap(MapTemplate template, SabotageConfig config) {
+        this.config = config;
         this.template = template;
         this.spawns = template.getMetadata().getRegions("spawn").toList();
         if (this.spawns.isEmpty()) {
@@ -44,6 +46,20 @@ public class SabotageMap {
         });
     }
     public void generateChests() {
+        // Have to make a new ArrayList to make it mutable
+        List<TemplateRegion> chestSpawns = new ArrayList<>(template.getMetadata().getRegions("chest").toList());
+        Collections.shuffle(chestSpawns);
+
+        // Make sure that the chest count doesn't go over the amount of chest positions
+        int chestCount = Math.min(config.chestCount(), chestSpawns.size());
+        for (TemplateRegion region : chestSpawns) {
+            if (chestCount > 0) {
+                chestCount--;
+                template.setBlockState(region.getBounds().min(), SABOTAGE_CHEST.getDefaultState());
+            } else {
+                break;
+            }
+        }
         // to-do: generate chests from added chest regions
     }
     public MapTemplate getTemplate() {

@@ -4,15 +4,17 @@ import eu.pb4.polymer.core.api.block.PolymerBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockEntityProvider;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.ChestBlock;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.util.math.BlockPos;
-import org.jetbrains.annotations.Nullable;
 
-public class SabotageChest extends Block implements BlockEntityProvider, PolymerBlock {
+import static me.ellieis.Sabotage.game.custom.SabotageBlocks.SABOTAGE_CHEST_ENTITY;
+
+public class SabotageChest extends ChestBlock implements BlockEntityProvider, PolymerBlock {
     private final Block virtualBlock;
 
     public SabotageChest(Settings settings, Block virtualBlock) {
-        super(settings);
+        super(settings, () -> SABOTAGE_CHEST_ENTITY);
 
         this.virtualBlock = virtualBlock;
     }
@@ -21,8 +23,7 @@ public class SabotageChest extends Block implements BlockEntityProvider, Polymer
     public Block getPolymerBlock(BlockState state) {
         return this.virtualBlock;
     }
-    @Nullable
-    @Override
+
     public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
         return new SabotageChestBlockEntity(pos, state);
     }

@@ -113,7 +113,9 @@ public class SabotageActive {
             result = result + plr.getName().getString() + ", ";
         }
         // get rid of the last comma
-        result = result.substring(0, result.length() - 2);
+        if (!result.isBlank()) {
+            result = result.substring(0, result.length() - 2);
+        }
         return result;
     }
 
@@ -307,7 +309,7 @@ public class SabotageActive {
             activity.listen(GamePlayerEvents.REMOVE, game::onPlayerRemove);
             activity.listen(GamePlayerEvents.OFFER, game::onOffer);
             activity.listen(GameActivityEvents.DESTROY, game::onDestroy);
-
+            map.generateChests();
             PlayerSet plrs = game.gameSpace.getPlayers();
             plrs.showTitle(Text.literal(Integer.toString(game.config.countdownTime())).formatted(Formatting.GOLD), 20);
             plrs.playSound(SoundEvents.BLOCK_NOTE_BLOCK_HARP.value(), SoundCategory.PLAYERS, 1.0F, 2.0F);
