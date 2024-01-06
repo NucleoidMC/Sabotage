@@ -1,6 +1,6 @@
 {
   "type": "sabotage:sabotage",
-  "map": "sabotage:lobby",
+  "map": "sabotage:testmap",
   "countdown_time": 5,
   "grace_period": 15,
   "time_limit": 100,

@@ -3,6 +3,7 @@ package me.ellieis.Sabotage.game.phase;
 import com.google.common.collect.ImmutableSet;
 import eu.pb4.sidebars.api.Sidebar;
 import eu.pb4.sidebars.api.lines.SidebarLine;
+import me.ellieis.Sabotage.Sabotage;
 import me.ellieis.Sabotage.game.EndReason;
 import me.ellieis.Sabotage.game.GameStates;
 import me.ellieis.Sabotage.game.Roles;
@@ -80,6 +81,10 @@ public class SabotageActive {
         this.detectives = new MutablePlayerSet(gameSpace.getServer());
         this.innocents = new MutablePlayerSet(gameSpace.getServer());
         this.karmaManager = new KarmaManager(gameSpace);
+        Sabotage.activeGames.add(this);
+    }
+    public ServerWorld getWorld() {
+        return world;
     }
     private static void gameStartedRules(GameActivity activity) {
         activity.allow(GameRuleType.FALL_DAMAGE);
@@ -301,6 +306,7 @@ public class SabotageActive {
             activity.listen(ReplacePlayerChatEvent.EVENT, game::onChat);
             activity.listen(GamePlayerEvents.REMOVE, game::onPlayerRemove);
             activity.listen(GamePlayerEvents.OFFER, game::onOffer);
+            activity.listen(GameActivityEvents.DESTROY, game::onDestroy);
 
             PlayerSet plrs = game.gameSpace.getPlayers();
             plrs.showTitle(Text.literal(Integer.toString(game.config.countdownTime())).formatted(Formatting.GOLD), 20);
@@ -395,6 +401,10 @@ public class SabotageActive {
             // player joined after game start, so they're technically dead
             plr.changeGameMode(GameMode.SPECTATOR);
         });
+    }
+
+    private void onDestroy(GameCloseReason gameCloseReason) {
+        Sabotage.activeGames.remove(this);
     }
 
     private void onPlayerRemove(ServerPlayerEntity plr) {

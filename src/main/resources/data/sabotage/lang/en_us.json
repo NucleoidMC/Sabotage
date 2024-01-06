@@ -1,5 +1,7 @@
 {
   "gameType.sabotage.sabotage": "Sabotage",
+  "block.sabotage.sabotage_chest": "Sabotage Chest",
+
   "sabotage.waiting": "Waiting for players.",
   "sabotage.full": "Game is full.",
   "sabotage.sidebar.countdown": "Get ready!",
