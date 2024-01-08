@@ -41,7 +41,7 @@ public class SabotageMap {
         this.spawns = template.getMetadata().getRegions("spawn").toList();
         this.chestSpawns = new ArrayList<>();
         if (this.spawns.isEmpty()) {
-            throw new GameOpenException(Text.literal("Failed to load spawns"));
+            throw new GameOpenException(Text.literal("Failed to load spawns, as there aren't any."));
         }
 
         // generate chest positions from placed SabotageChests
