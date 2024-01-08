@@ -14,7 +14,11 @@ import me.ellieis.Sabotage.game.config.SaboteurConfig;
 import me.ellieis.Sabotage.game.map.SabotageMap;
 import me.ellieis.Sabotage.game.statistics.KarmaManager;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.item.ItemStack;
 import net.minecraft.network.message.MessageType;
 import net.minecraft.network.message.SentMessage;
 import net.minecraft.network.message.SignedMessage;
@@ -48,9 +52,18 @@ import xyz.nucleoid.plasmid.util.PlayerRef;
 import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
 import xyz.nucleoid.stimuli.event.player.ReplacePlayerChatEvent;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Consumer;
+
+import static me.ellieis.Sabotage.game.custom.SabotageItems.DETECTIVE_SHEARS;
 
 public class SabotageActive {
+
     private final SabotageConfig config;
     private final GameSpace gameSpace;
     private final SabotageMap map;
@@ -62,6 +75,7 @@ public class SabotageActive {
     private PlayerSet initialSaboteurs;
     private final Map<ServerPlayerEntity, Team> playersOldTeams = new HashMap<>();
     private final KarmaManager karmaManager;
+    private final ArrayList<Task> tasks = new ArrayList<>();
     private long startTime;
     private long endTime;
     private GameActivity activity;
@@ -203,8 +217,7 @@ public class SabotageActive {
         if (sabCount < 1) {
             sabCount = 1;
         }
-        int detCount = playerCount / 8;
-
+        int detCount = playerCount / 2;
         for (ServerPlayerEntity plr : plrList) {
             if (detCount >= 1) {
                 detectives.add(plr);
@@ -224,6 +237,11 @@ public class SabotageActive {
         saboteurs.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.saboteur").formatted(Formatting.RED)), 10, 80, 10);
         saboteurs.playSound(SoundEvents.ENTITY_ILLUSIONER_CAST_SPELL);
         saboteurs.playSound(SoundEvents.AMBIENT_SOUL_SAND_VALLEY_MOOD.value());
+
+        // give detectives their portable tester
+        for (ServerPlayerEntity detective : detectives) {
+            detective.getInventory().insertStack(new ItemStack(DETECTIVE_SHEARS));
+        }
 
         // name tag coloring
         Scoreboard scoreboard = gameSpace.getServer().getScoreboard();
@@ -283,6 +301,30 @@ public class SabotageActive {
                 plr.networkHandler.sendPacket(TeamS2CPacket.changePlayerTeam(detective, other.getGameProfile().getName(), operation));
             } else {
                 plr.networkHandler.sendPacket(TeamS2CPacket.changePlayerTeam(unknown, other.getGameProfile().getName(), operation));
+            }
+        }
+    }
+    public void testEntity(ServerPlayerEntity plr, LivingEntity entity) {
+        Roles role = getPlayerRole(plr);
+        if (role == Roles.DETECTIVE) {
+            if (entity.isPlayer()) {
+                final ServerPlayerEntity playerEntity = (ServerPlayerEntity) entity;
+                plr.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 40));
+                plr.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 100));
+                playerEntity.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100));
+                playerEntity.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 200, 3));
+                int revealTime = (int) world.getTime() + 200;
+                Consumer<Integer> func = (currentTime) -> {
+                    Roles plrRole = getPlayerRole(playerEntity);
+                    gameSpace.getPlayers().sendMessage(
+                            Text.translatable("sabotage.detective_shears_reveal",
+                                    playerEntity.getName(),
+                                    Text.translatable("sabotage." + (
+                                            (plrRole == Roles.SABOTEUR) ? "saboteur" :
+                                                    (plrRole == Roles.DETECTIVE) ? "detective" : "innocent")
+                                    ).formatted(getRoleColor(plrRole))));
+                };
+                tasks.add(new Task(revealTime, func));
             }
         }
     }
@@ -562,6 +604,13 @@ public class SabotageActive {
             }
 
             case ACTIVE -> {
+                for (int i = 0; i < tasks.size(); i++) {
+                    Task task = tasks.get(i);
+                    if (task.executionTime <= time) {
+                        task.task.accept((int) time);
+                        tasks.remove(task);
+                    }
+                }
                 if (time % 20 == 0) {
                     // second has passed
                     double timePassed = Math.floor((world.getTime() / 20) - (startTime / 20)) - config.countdownTime() - config.gracePeriod();
@@ -592,5 +641,14 @@ public class SabotageActive {
                 gameSpace.close(GameCloseReason.ERRORED);
             }
         }
+    }
+}
+
+class Task {
+    final int executionTime;
+    final Consumer<Integer> task;
+    public Task(int executionTime, Consumer<Integer> task) {
+        this.executionTime = executionTime;
+        this.task = task;
     }
 }
