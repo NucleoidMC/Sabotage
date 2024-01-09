@@ -371,13 +371,14 @@ public class SabotageActive {
     }
 
     // tester only
-    public boolean testEntity(ServerPlayerEntity plr) {
+    public boolean testEntity(ServerPlayerEntity plr, BlockPos pos) {
         if (plr.isSpectator()) return true;
         if (gameState == GameStates.ACTIVE) {
             if (isTesterOnCooldown) {
                 return false;
             }
             isTesterOnCooldown = true;
+            plr.teleport(pos.getX(), pos.getY(), pos.getZ());
             plr.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100));
             plr.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 200));
             for (BlockPos blockPos : map.getTesterCloseRegion().getBounds()) {

@@ -32,12 +32,11 @@ public class TesterSign extends SignBlock implements BlockEntityProvider, Polyme
     }
     @Override
     public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
-        // to-do: tester functionality
         if (!world.isClient()) {
             ServerPlayerEntity plr = (ServerPlayerEntity) player;
             for (SabotageActive game : Sabotage.activeGames) {
                 if (game.getWorld().equals(world)) {
-                    if (!game.testEntity(plr)) {
+                    if (!game.testEntity(plr, hit.getBlockPos())) {
                         plr.sendMessage(Text.translatable("sabotage.tester.fail").formatted(Formatting.YELLOW));
                     }
                     break;

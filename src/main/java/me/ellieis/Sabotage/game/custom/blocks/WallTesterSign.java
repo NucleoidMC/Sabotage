@@ -16,6 +16,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.DyeColor;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
@@ -35,11 +36,13 @@ public class WallTesterSign extends WallSignBlock implements PolymerBlock {
     }
     @Override
     public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
-        // to-do: tester functionality
         if (!world.isClient()) {
+            ServerPlayerEntity plr = (ServerPlayerEntity) player;
             for (SabotageActive game : Sabotage.activeGames) {
                 if (game.getWorld().equals(world)) {
-                    game.testEntity((ServerPlayerEntity) player);
+                    if (!game.testEntity(plr, hit.getBlockPos())) {
+                        plr.sendMessage(Text.translatable("sabotage.tester.fail").formatted(Formatting.YELLOW));
+                    }
                     break;
                 }
             }
@@ -62,7 +65,6 @@ public class WallTesterSign extends WallSignBlock implements PolymerBlock {
             SignBlockEntity be = (SignBlockEntity) world.getBlockEntity(pos);
             Text[] text = {Text.literal("Click this"), Text.literal("sign to"), Text.literal("start the"), Text.literal("test")};
             be.setText(new SignText(text, text, DyeColor.RED, true), true);
-
         }
     }
 }
