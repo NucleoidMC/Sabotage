@@ -2,8 +2,7 @@ package me.ellieis.Sabotage.game.custom;
 
 import eu.pb4.polymer.core.api.block.PolymerBlockUtils;
 import me.ellieis.Sabotage.Sabotage;
-import me.ellieis.Sabotage.game.custom.blocks.SabotageChest;
-import me.ellieis.Sabotage.game.custom.blocks.SabotageChestBlockEntity;
+import me.ellieis.Sabotage.game.custom.blocks.*;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.Block;
@@ -16,11 +15,16 @@ import net.minecraft.registry.Registry;
 
 public class SabotageBlocks {
     public static final SabotageChest SABOTAGE_CHEST = new SabotageChest(AbstractBlock.Settings.copy(Blocks.CHEST).dropsNothing(), Blocks.CHEST);
+    public static final TesterWool TESTER_WOOL = new TesterWool(AbstractBlock.Settings.copy(Blocks.WHITE_WOOL).dropsNothing(), Blocks.WHITE_WOOL);
+    public static final TesterSign TESTER_SIGN = new TesterSign(AbstractBlock.Settings.copy(Blocks.OAK_SIGN).dropsNothing(), Blocks.OAK_SIGN);
+    public static final WallTesterSign WALL_TESTER_SIGN = new WallTesterSign(AbstractBlock.Settings.copy(Blocks.OAK_WALL_SIGN), Blocks.OAK_WALL_SIGN);
 
     public static final BlockEntityType<SabotageChestBlockEntity> SABOTAGE_CHEST_ENTITY = FabricBlockEntityTypeBuilder.create(SabotageChestBlockEntity::new, SABOTAGE_CHEST).build(null);
     public static void register() {
         register("sabotage_chest", SABOTAGE_CHEST);
-
+        register("tester_wool", TESTER_WOOL);
+        register("tester_sign", TESTER_SIGN);
+        register("wall_tester_sign", WALL_TESTER_SIGN);
         registerBlockEntity("sabotage_chest_block_entity", SABOTAGE_CHEST_ENTITY);
 
     }

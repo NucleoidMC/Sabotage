@@ -2,6 +2,7 @@ package me.ellieis.Sabotage.game.map;
 
 import me.ellieis.Sabotage.game.config.SabotageConfig;
 import me.ellieis.Sabotage.game.custom.blocks.SabotageChest;
+import me.ellieis.Sabotage.game.custom.blocks.TesterWool;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -24,14 +25,15 @@ import xyz.nucleoid.plasmid.util.PlayerRef;
 import java.util.*;
 
 import static me.ellieis.Sabotage.game.custom.SabotageBlocks.SABOTAGE_CHEST;
-record ChestInfo(BlockPos pos, Direction direction) {
+record ChestInfo(BlockPos pos, Direction direction) { }
 
-}
 public class SabotageMap {
     private final SabotageConfig config;
     private final MapTemplate template;
     private final List<TemplateRegion> spawns;
-    private final List<ChestInfo> chestSpawns;
+    private final TemplateRegion testerCloseRegion;
+    private final List<BlockPos> testerWools = new ArrayList<>();
+    private final List<ChestInfo> chestSpawns = new ArrayList<>();
     private final Map<PlayerRef, Vec3d> playerSpawnPos = new HashMap<>();
     private ServerWorld world;
 
@@ -39,9 +41,14 @@ public class SabotageMap {
         this.config = config;
         this.template = template;
         this.spawns = template.getMetadata().getRegions("spawn").toList();
-        this.chestSpawns = new ArrayList<>();
+        this.testerCloseRegion = template.getMetadata().getFirstRegion("tester_close_region");
+
         if (this.spawns.isEmpty()) {
             throw new GameOpenException(Text.literal("Failed to load spawns, as there aren't any."));
+        }
+
+        if (this.testerCloseRegion == null) {
+            throw new GameOpenException(Text.literal("Failed to load tester close region, as there isn't any"));
         }
 
         // generate chest positions from placed SabotageChests
@@ -52,12 +59,15 @@ public class SabotageMap {
                 // note to self: make your positions immutable in forEach loops..
                 chestSpawns.add(new ChestInfo(blockPos.toImmutable(), blockState.get(Properties.HORIZONTAL_FACING)));
                 template.setBlockState(blockPos, Blocks.AIR.getDefaultState());
+            } else if (block instanceof TesterWool) {
+                testerWools.add(blockPos.toImmutable());
             }
         });
     }
     public void setWorld(ServerWorld world) {
         this.world = world;
     }
+
     public void generateChests() {
         Collections.shuffle(chestSpawns);
 
@@ -72,8 +82,16 @@ public class SabotageMap {
             }
         }
     }
+
+    public List<BlockPos> getTesterWools() {
+        return this.testerWools;
+    }
     public MapTemplate getTemplate() {
         return this.template;
+    }
+
+    public TemplateRegion getTesterCloseRegion() {
+        return this.testerCloseRegion;
     }
 
     public List<TemplateRegion> getSpawns() {

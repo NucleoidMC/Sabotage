@@ -13,6 +13,10 @@ import me.ellieis.Sabotage.game.config.SabotageConfig;
 import me.ellieis.Sabotage.game.config.SaboteurConfig;
 import me.ellieis.Sabotage.game.map.SabotageMap;
 import me.ellieis.Sabotage.game.statistics.KarmaManager;
+import me.ellieis.Sabotage.game.utils.Task;
+import me.ellieis.Sabotage.game.utils.TaskScheduler;
+import net.minecraft.block.Block;
+import net.minecraft.block.Blocks;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
@@ -34,6 +38,7 @@ import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import xyz.nucleoid.plasmid.game.GameActivity;
@@ -52,12 +57,7 @@ import xyz.nucleoid.plasmid.util.PlayerRef;
 import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
 import xyz.nucleoid.stimuli.event.player.ReplacePlayerChatEvent;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Consumer;
 
 import static me.ellieis.Sabotage.game.custom.SabotageItems.DETECTIVE_SHEARS;
@@ -75,7 +75,8 @@ public class SabotageActive {
     private PlayerSet initialSaboteurs;
     private final Map<ServerPlayerEntity, Team> playersOldTeams = new HashMap<>();
     private final KarmaManager karmaManager;
-    private final ArrayList<Task> tasks = new ArrayList<>();
+    private final TaskScheduler taskScheduler;
+    private boolean isTesterOnCooldown = false;
     private long startTime;
     private long endTime;
     private GameActivity activity;
@@ -96,6 +97,7 @@ public class SabotageActive {
         this.detectives = new MutablePlayerSet(gameSpace.getServer());
         this.innocents = new MutablePlayerSet(gameSpace.getServer());
         this.karmaManager = new KarmaManager(gameSpace);
+        this.taskScheduler = new TaskScheduler(gameSpace, world);
         Sabotage.activeGames.add(this);
     }
     public ServerWorld getWorld() {
@@ -301,30 +303,6 @@ public class SabotageActive {
                 plr.networkHandler.sendPacket(TeamS2CPacket.changePlayerTeam(detective, other.getGameProfile().getName(), operation));
             } else {
                 plr.networkHandler.sendPacket(TeamS2CPacket.changePlayerTeam(unknown, other.getGameProfile().getName(), operation));
-            }
-        }
-    }
-    public void testEntity(ServerPlayerEntity plr, LivingEntity entity) {
-        Roles role = getPlayerRole(plr);
-        if (role == Roles.DETECTIVE) {
-            if (entity.isPlayer()) {
-                final ServerPlayerEntity playerEntity = (ServerPlayerEntity) entity;
-                plr.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 40));
-                plr.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 100));
-                playerEntity.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100));
-                playerEntity.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 200, 3));
-                int revealTime = (int) world.getTime() + 200;
-                Consumer<Integer> func = (currentTime) -> {
-                    Roles plrRole = getPlayerRole(playerEntity);
-                    gameSpace.getPlayers().sendMessage(
-                            Text.translatable("sabotage.detective_shears_reveal",
-                                    playerEntity.getName(),
-                                    Text.translatable("sabotage." + (
-                                            (plrRole == Roles.SABOTEUR) ? "saboteur" :
-                                                    (plrRole == Roles.DETECTIVE) ? "detective" : "innocent")
-                                    ).formatted(getRoleColor(plrRole))));
-                };
-                tasks.add(new Task(revealTime, func));
             }
         }
     }
@@ -543,7 +521,69 @@ public class SabotageActive {
             }
         }
     }
+    private void changeTesterWool(Roles role) {
+        Block wool = (role == Roles.SABOTEUR) ? Blocks.RED_WOOL :
+                (role == Roles.DETECTIVE) ? Blocks.BLUE_WOOL :
+                        (role == Roles.INNOCENT) ? Blocks.GREEN_WOOL : Blocks.WHITE_WOOL;
+        for (BlockPos testerWool : map.getTesterWools()) {
+            world.setBlockState(testerWool, wool.getDefaultState());
+        }
+        taskScheduler.addTask(new Task((int) (world.getTime() + 200), (gameSpace) -> {
+            for (BlockPos testerWool : map.getTesterWools()) {
+                world.setBlockState(testerWool, Blocks.WHITE_WOOL.getDefaultState());
+            }
+        }));
 
+    }
+
+    // portable tester onlu
+    public void testEntity(ServerPlayerEntity plr, LivingEntity entity) {
+        Roles role = getPlayerRole(plr);
+        if (role == Roles.DETECTIVE) {
+            if (entity.isPlayer()) {
+                final ServerPlayerEntity playerEntity = (ServerPlayerEntity) entity;
+                plr.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 40));
+                plr.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 100));
+                playerEntity.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100));
+                playerEntity.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 200));
+                int revealTime = (int) world.getTime() + 200;
+                Consumer<GameSpace> func = (gameSpace) -> {
+                    Roles plrRole = getPlayerRole(playerEntity);
+                    gameSpace.getPlayers().sendMessage(
+                            Text.translatable("sabotage.detective_shears_reveal",
+                                    playerEntity.getName(),
+                                    Text.translatable("sabotage." + (
+                                            (plrRole == Roles.SABOTEUR) ? "saboteur" :
+                                                    (plrRole == Roles.DETECTIVE) ? "detective" : "innocent")
+                                    ).formatted(getRoleColor(plrRole))));
+                };
+                taskScheduler.addTask(new Task(revealTime, func));
+            }
+        }
+    }
+
+    // tester only
+    public void testEntity(ServerPlayerEntity plr) {
+        if (gameState == GameStates.ACTIVE) {
+            if (isTesterOnCooldown) {
+                return;
+            }
+            plr.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100));
+            plr.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 200));
+            for (BlockPos blockPos : map.getTesterCloseRegion().getBounds()) {
+                world.setBlockState(blockPos, Blocks.IRON_BARS.getDefaultState());
+            }
+            int revealTime = (int) world.getTime() + 200;
+            Consumer<GameSpace> func = (gameSpace) -> {
+                Roles plrRole = getPlayerRole(plr);
+                changeTesterWool(plrRole);
+                for (BlockPos blockPos : map.getTesterCloseRegion().getBounds()) {
+                    world.setBlockState(blockPos, Blocks.AIR.getDefaultState());
+                }
+            };
+            taskScheduler.addTask(new Task(revealTime, func));
+        }
+    }
     private void awardPlayerKill(ServerPlayerEntity attacker, ServerPlayerEntity plr, Roles plrRole, int innocentKarma, int detectiveKarma, int saboteurKarma) {
         // attacker is confirmed innocent or detective
         switch(plrRole) {
@@ -566,6 +606,7 @@ public class SabotageActive {
 
     public void onTick() {
         long time = world.getTime();
+        taskScheduler.onTick();
         switch(gameState) {
             case COUNTDOWN -> {
                 if (time % 20 == 0) {
@@ -604,13 +645,6 @@ public class SabotageActive {
             }
 
             case ACTIVE -> {
-                for (int i = 0; i < tasks.size(); i++) {
-                    Task task = tasks.get(i);
-                    if (task.executionTime <= time) {
-                        task.task.accept((int) time);
-                        tasks.remove(task);
-                    }
-                }
                 if (time % 20 == 0) {
                     // second has passed
                     double timePassed = Math.floor((world.getTime() / 20) - (startTime / 20)) - config.countdownTime() - config.gracePeriod();
@@ -644,11 +678,3 @@ public class SabotageActive {
     }
 }
 
-class Task {
-    final int executionTime;
-    final Consumer<Integer> task;
-    public Task(int executionTime, Consumer<Integer> task) {
-        this.executionTime = executionTime;
-        this.task = task;
-    }
-}

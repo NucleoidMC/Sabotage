@@ -81,10 +81,6 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
         return this.virtualBlock;
     }
 
-    public Block getPolymerBlock() {
-        return this.virtualBlock;
-    }
-
     @Override
     public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity plr, Hand hand, BlockHitResult hit) {
         boolean isInGame = false;
