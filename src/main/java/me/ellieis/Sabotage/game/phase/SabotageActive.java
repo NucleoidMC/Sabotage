@@ -80,7 +80,7 @@ public class SabotageActive {
     private long startTime;
     private long endTime;
     private GameActivity activity;
-    private GameStates gameState = GameStates.COUNTDOWN;
+    public GameStates gameState = GameStates.COUNTDOWN;
     private GlobalWidgets widgets;
     private SidebarWidget globalSidebar;
     private SidebarWidget innocentSidebar;
@@ -322,6 +322,107 @@ public class SabotageActive {
         }
         return EndReason.NONE;
     }
+
+    private void changeTesterWool(Roles role) {
+        Block wool = (role == Roles.SABOTEUR) ? Blocks.RED_WOOL :
+                (role == Roles.DETECTIVE) ? Blocks.BLUE_WOOL :
+                        (role == Roles.INNOCENT) ? Blocks.GREEN_WOOL : Blocks.WHITE_WOOL;
+        for (BlockPos testerWool : map.getTesterWools()) {
+            world.setBlockState(testerWool, wool.getDefaultState());
+        }
+        taskScheduler.addTask(new Task((int) (world.getTime() + 200), (gameSpace) -> {
+            for (BlockPos testerWool : map.getTesterWools()) {
+                world.setBlockState(testerWool, Blocks.WHITE_WOOL.getDefaultState());
+            }
+            isTesterOnCooldown = false;
+        }));
+
+    }
+
+    // portable tester onlu
+    public void testEntity(ServerPlayerEntity plr, LivingEntity entity) {
+        if (plr.isSpectator() || entity.isSpectator()) return;
+        if (plr.hasStatusEffect(StatusEffects.SLOWNESS) || entity.hasStatusEffect(StatusEffects.SLOWNESS)) {
+            // either player is already testing or being tested, abort
+            return;
+        }
+        Roles role = getPlayerRole(plr);
+        if (role == Roles.DETECTIVE) {
+            if (entity.isPlayer()) {
+                final ServerPlayerEntity playerEntity = (ServerPlayerEntity) entity;
+                plr.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100));
+                plr.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 200));
+                playerEntity.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100));
+                playerEntity.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 200));
+                int revealTime = (int) world.getTime() + 200;
+                Consumer<GameSpace> func = (gameSpace) -> {
+                    Roles plrRole = getPlayerRole(playerEntity);
+                    gameSpace.getPlayers().sendMessage(
+                            Text.translatable("sabotage.detective_shears_reveal",
+                                    playerEntity.getName(),
+                                    Text.translatable("sabotage." + (
+                                            (plrRole == Roles.SABOTEUR) ? "saboteur" :
+                                                    (plrRole == Roles.DETECTIVE) ? "detective" : "innocent")
+                                    ).formatted(getRoleColor(plrRole))));
+                };
+                taskScheduler.addTask(new Task(revealTime, func));
+            }
+        }
+    }
+
+    // tester only
+    public boolean testEntity(ServerPlayerEntity plr) {
+        if (plr.isSpectator()) return true;
+        if (gameState == GameStates.ACTIVE) {
+            if (isTesterOnCooldown) {
+                return false;
+            }
+            isTesterOnCooldown = true;
+            plr.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100));
+            plr.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 200));
+            for (BlockPos blockPos : map.getTesterCloseRegion().getBounds()) {
+                world.setBlockState(blockPos, Blocks.IRON_BARS.getDefaultState());
+            }
+            world.playSound(null, plr.getBlockPos(), SoundEvents.BLOCK_IRON_DOOR_CLOSE, SoundCategory.BLOCKS, 1, 0.5f);
+            gameSpace.getPlayers().sendMessage(Text.translatable("sabotage.tester.message", plr.getName(), 10).formatted(Formatting.YELLOW));
+            int revealTime = (int) world.getTime() + 200;
+            Consumer<GameSpace> reminder = (gameSpace) -> {
+                gameSpace.getPlayers().sendMessage(Text.translatable("sabotage.tester.message", plr.getName(), 5).formatted(Formatting.YELLOW));
+            };
+            Consumer<GameSpace> reveal = (gameSpace) -> {
+                Roles plrRole = getPlayerRole(plr);
+                // isTesterOnCooldown is changed in this method
+                changeTesterWool(plrRole);
+                for (BlockPos blockPos : map.getTesterCloseRegion().getBounds()) {
+                    world.setBlockState(blockPos, Blocks.AIR.getDefaultState());
+                }
+                world.playSound(null, plr.getBlockPos(), SoundEvents.BLOCK_IRON_DOOR_OPEN, SoundCategory.BLOCKS, 1, 0.5f);
+            };
+            taskScheduler.addTask(new Task(revealTime - 100, reminder));
+            taskScheduler.addTask(new Task(revealTime, reveal));
+        }
+        return true;
+    }
+    private void awardPlayerKill(ServerPlayerEntity attacker, ServerPlayerEntity plr, Roles plrRole, int innocentKarma, int detectiveKarma, int saboteurKarma) {
+        // attacker is confirmed innocent or detective
+        switch(plrRole) {
+            case INNOCENT -> {
+                karmaManager.decrementKarma(attacker, innocentKarma);
+                attacker.sendMessage(createAttackerKillMessage(plr, -innocentKarma));
+            }
+
+            case DETECTIVE -> {
+                karmaManager.decrementKarma(attacker, detectiveKarma);
+                attacker.sendMessage(createAttackerKillMessage(plr, -detectiveKarma));
+            }
+
+            case SABOTEUR -> {
+                karmaManager.incrementKarma(attacker, saboteurKarma);
+                attacker.sendMessage(createAttackerKillMessage(plr, saboteurKarma));
+            }
+        }
+    }
+
     public void Start() {
         gameState = GameStates.ACTIVE;
         pickRoles();
@@ -518,88 +619,6 @@ public class SabotageActive {
                     PlayerSet plrs = getAlivePlayers();
                     plrs.sendMessage(Text.translatable("sabotage.kill_message", plr.getName(), plrs.size() - 1).formatted(Formatting.YELLOW));
                 }
-            }
-        }
-    }
-    private void changeTesterWool(Roles role) {
-        Block wool = (role == Roles.SABOTEUR) ? Blocks.RED_WOOL :
-                (role == Roles.DETECTIVE) ? Blocks.BLUE_WOOL :
-                        (role == Roles.INNOCENT) ? Blocks.GREEN_WOOL : Blocks.WHITE_WOOL;
-        for (BlockPos testerWool : map.getTesterWools()) {
-            world.setBlockState(testerWool, wool.getDefaultState());
-        }
-        taskScheduler.addTask(new Task((int) (world.getTime() + 200), (gameSpace) -> {
-            for (BlockPos testerWool : map.getTesterWools()) {
-                world.setBlockState(testerWool, Blocks.WHITE_WOOL.getDefaultState());
-            }
-        }));
-
-    }
-
-    // portable tester onlu
-    public void testEntity(ServerPlayerEntity plr, LivingEntity entity) {
-        Roles role = getPlayerRole(plr);
-        if (role == Roles.DETECTIVE) {
-            if (entity.isPlayer()) {
-                final ServerPlayerEntity playerEntity = (ServerPlayerEntity) entity;
-                plr.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 40));
-                plr.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 100));
-                playerEntity.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100));
-                playerEntity.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 200));
-                int revealTime = (int) world.getTime() + 200;
-                Consumer<GameSpace> func = (gameSpace) -> {
-                    Roles plrRole = getPlayerRole(playerEntity);
-                    gameSpace.getPlayers().sendMessage(
-                            Text.translatable("sabotage.detective_shears_reveal",
-                                    playerEntity.getName(),
-                                    Text.translatable("sabotage." + (
-                                            (plrRole == Roles.SABOTEUR) ? "saboteur" :
-                                                    (plrRole == Roles.DETECTIVE) ? "detective" : "innocent")
-                                    ).formatted(getRoleColor(plrRole))));
-                };
-                taskScheduler.addTask(new Task(revealTime, func));
-            }
-        }
-    }
-
-    // tester only
-    public void testEntity(ServerPlayerEntity plr) {
-        if (gameState == GameStates.ACTIVE) {
-            if (isTesterOnCooldown) {
-                return;
-            }
-            plr.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100));
-            plr.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 200));
-            for (BlockPos blockPos : map.getTesterCloseRegion().getBounds()) {
-                world.setBlockState(blockPos, Blocks.IRON_BARS.getDefaultState());
-            }
-            int revealTime = (int) world.getTime() + 200;
-            Consumer<GameSpace> func = (gameSpace) -> {
-                Roles plrRole = getPlayerRole(plr);
-                changeTesterWool(plrRole);
-                for (BlockPos blockPos : map.getTesterCloseRegion().getBounds()) {
-                    world.setBlockState(blockPos, Blocks.AIR.getDefaultState());
-                }
-            };
-            taskScheduler.addTask(new Task(revealTime, func));
-        }
-    }
-    private void awardPlayerKill(ServerPlayerEntity attacker, ServerPlayerEntity plr, Roles plrRole, int innocentKarma, int detectiveKarma, int saboteurKarma) {
-        // attacker is confirmed innocent or detective
-        switch(plrRole) {
-            case INNOCENT -> {
-                karmaManager.decrementKarma(attacker, innocentKarma);
-                attacker.sendMessage(createAttackerKillMessage(plr, -innocentKarma));
-            }
-
-            case DETECTIVE -> {
-                karmaManager.decrementKarma(attacker, detectiveKarma);
-                attacker.sendMessage(createAttackerKillMessage(plr, -detectiveKarma));
-            }
-
-            case SABOTEUR -> {
-                karmaManager.incrementKarma(attacker, saboteurKarma);
-                attacker.sendMessage(createAttackerKillMessage(plr, saboteurKarma));
             }
         }
     }

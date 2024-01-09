@@ -3,6 +3,7 @@ package me.ellieis.Sabotage.game.custom.blocks;
 import com.google.common.util.concurrent.AtomicDouble;
 import eu.pb4.polymer.core.api.block.PolymerBlock;
 import me.ellieis.Sabotage.Sabotage;
+import me.ellieis.Sabotage.game.GameStates;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
 import net.minecraft.block.*;
 import net.minecraft.block.entity.BlockEntity;
@@ -83,17 +84,17 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
 
     @Override
     public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity plr, Hand hand, BlockHitResult hit) {
-        boolean isInGame = false;
+        SabotageActive game = null;
 
-        for (SabotageActive game : Sabotage.activeGames) {
-            if (game.getWorld().equals(world)) {
-                isInGame = true;
+        for (SabotageActive activeGame : Sabotage.activeGames) {
+            if (activeGame.getWorld().equals(world)) {
+                game = activeGame;
                 break;
             }
         }
 
-        if (isInGame) {
-            plr.playSound(SoundEvents.BLOCK_CHEST_CLOSE, SoundCategory.BLOCKS, 1, 1.2f);
+        if (game != null && game.gameState != GameStates.COUNTDOWN) {
+            world.playSound(null, pos, SoundEvents.BLOCK_CHEST_CLOSE, SoundCategory.BLOCKS, 1, 1.2f);
             plr.getInventory().insertStack(getItemDrop());
             world.setBlockState(pos, Blocks.AIR.getDefaultState());
         }

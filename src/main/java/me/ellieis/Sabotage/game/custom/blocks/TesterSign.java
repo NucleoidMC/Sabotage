@@ -13,6 +13,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.DyeColor;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
@@ -33,9 +34,12 @@ public class TesterSign extends SignBlock implements BlockEntityProvider, Polyme
     public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
         // to-do: tester functionality
         if (!world.isClient()) {
+            ServerPlayerEntity plr = (ServerPlayerEntity) player;
             for (SabotageActive game : Sabotage.activeGames) {
                 if (game.getWorld().equals(world)) {
-                    game.testEntity((ServerPlayerEntity) player);
+                    if (!game.testEntity(plr)) {
+                        plr.sendMessage(Text.translatable("sabotage.tester.fail").formatted(Formatting.YELLOW));
+                    }
                     break;
                 }
             }

@@ -12,6 +12,8 @@
   "sabotage.sidebar.role": "Your role is: %s",
   "sabotage.sidebar.role.desc": "Find and kill all %s",
   "sabotage.sidebar.time_left": "Time left: %02d:%02d",
+  "sabotage.tester.message": "%s is being tested. Check back in %s seconds for the result",
+  "sabotage.tester.fail": "This tester is on cooldown. Try again in a few seconds.",
   "sabotage.detective_shears_reveal": "%s was a %s!",
   "sabotage.game_start": "The game has started! You have %s seconds to collect items, gear, or hide. Your roles will be selected after the grace period.",
   "sabotage.game_end": "The game has ended! The following players were saboteurs: %s",
