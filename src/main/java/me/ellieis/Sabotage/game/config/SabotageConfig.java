@@ -5,19 +5,20 @@ import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.util.Identifier;
 import xyz.nucleoid.plasmid.game.common.config.PlayerConfig;
 
-public record SabotageConfig(Identifier map, int countdownTime, int gracePeriod, int timeLimit, int endDelay, int chestCount, InnocentConfig innocentConfig, DetectiveConfig detectiveConfig, SaboteurConfig saboteurConfig, PlayerConfig playerConfig) {
+public record SabotageConfig(Identifier map, Identifier dimension, int countdownTime, int gracePeriod, int timeLimit, int endDelay, int chestCount, InnocentConfig innocentConfig, DetectiveConfig detectiveConfig, SaboteurConfig saboteurConfig, PlayerConfig playerConfig) {
     public static final Codec<SabotageConfig> CODEC = RecordCodecBuilder.create(instance ->
         instance.group(
                 Identifier.CODEC.fieldOf("map").forGetter(SabotageConfig::map),
-                Codec.INT.fieldOf("countdown_time").forGetter(SabotageConfig::countdownTime),
-                Codec.INT.fieldOf("grace_period").forGetter(SabotageConfig::gracePeriod),
-                Codec.INT.fieldOf("time_limit").forGetter(SabotageConfig::timeLimit),
-                Codec.INT.fieldOf("end_delay").forGetter(SabotageConfig::endDelay),
+                Identifier.CODEC.optionalFieldOf("dimension", new Identifier("minecraft:overworld")).forGetter(SabotageConfig::dimension),
+                Codec.INT.optionalFieldOf("countdown_time", 5).forGetter(SabotageConfig::countdownTime),
+                Codec.INT.optionalFieldOf("grace_period", 15).forGetter(SabotageConfig::gracePeriod),
+                Codec.INT.optionalFieldOf("time_limit", 1200).forGetter(SabotageConfig::timeLimit),
+                Codec.INT.optionalFieldOf("end_delay", 10).forGetter(SabotageConfig::endDelay),
                 Codec.INT.fieldOf("chest_count").forGetter(SabotageConfig::chestCount),
-                InnocentConfig.CODEC.fieldOf("innocent").forGetter(SabotageConfig::innocentConfig),
-                DetectiveConfig.CODEC.fieldOf("detective").forGetter(SabotageConfig::detectiveConfig),
-                SaboteurConfig.CODEC.fieldOf("saboteur").forGetter(SabotageConfig::saboteurConfig),
-                PlayerConfig.CODEC.fieldOf("players").forGetter(SabotageConfig::playerConfig)
+                InnocentConfig.CODEC.optionalFieldOf("innocent", new InnocentConfig(20, 100, 20)).forGetter(SabotageConfig::innocentConfig),
+                DetectiveConfig.CODEC.optionalFieldOf("detective", new DetectiveConfig(20, 100, 100)).forGetter(SabotageConfig::detectiveConfig),
+                SaboteurConfig.CODEC.optionalFieldOf("saboteur", new SaboteurConfig(20, 100, 20)).forGetter(SabotageConfig::saboteurConfig),
+                PlayerConfig.CODEC.optionalFieldOf("players", new PlayerConfig(4, 64, 6, new PlayerConfig.Countdown(30, 5))).forGetter(SabotageConfig::playerConfig)
         ).apply(instance, SabotageConfig::new)
     );
 }

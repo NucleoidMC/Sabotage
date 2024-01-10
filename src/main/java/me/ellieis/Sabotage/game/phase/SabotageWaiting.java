@@ -3,18 +3,15 @@ package me.ellieis.Sabotage.game.phase;
 import me.ellieis.Sabotage.game.config.SabotageConfig;
 import me.ellieis.Sabotage.game.map.SabotageMap;
 import me.ellieis.Sabotage.game.map.SabotageMapBuilder;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import xyz.nucleoid.fantasy.RuntimeWorldConfig;
-
-import xyz.nucleoid.plasmid.game.GameActivity;
-import xyz.nucleoid.plasmid.game.GameOpenContext;
-import xyz.nucleoid.plasmid.game.GameOpenProcedure;
-import xyz.nucleoid.plasmid.game.GameSpace;
-import xyz.nucleoid.plasmid.game.GameResult;
+import xyz.nucleoid.plasmid.game.*;
 import xyz.nucleoid.plasmid.game.common.GameWaitingLobby;
 import xyz.nucleoid.plasmid.game.event.GameActivityEvents;
 import xyz.nucleoid.plasmid.game.event.GamePlayerEvents;
@@ -56,6 +53,7 @@ public class SabotageWaiting {
         SabotageMap map = SabotageMapBuilder.build(server, config.map(), config);
         RuntimeWorldConfig worldConfig = new RuntimeWorldConfig()
                 .setGenerator(map.asChunkGenerator(server))
+                .setDimensionType(RegistryKey.of(RegistryKeys.DIMENSION_TYPE, config.dimension()))
                 .setTimeOfDay(6000);
 
         return context.openWithWorld(worldConfig, (activity, world) -> {
