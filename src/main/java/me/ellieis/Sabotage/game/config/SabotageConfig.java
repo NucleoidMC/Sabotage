@@ -3,13 +3,14 @@ package me.ellieis.Sabotage.game.config;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.util.Identifier;
+import xyz.nucleoid.fantasy.Fantasy;
 import xyz.nucleoid.plasmid.game.common.config.PlayerConfig;
 
 public record SabotageConfig(Identifier map, Identifier dimension, int countdownTime, int gracePeriod, int timeLimit, int endDelay, int chestCount, InnocentConfig innocentConfig, DetectiveConfig detectiveConfig, SaboteurConfig saboteurConfig, PlayerConfig playerConfig) {
     public static final Codec<SabotageConfig> CODEC = RecordCodecBuilder.create(instance ->
         instance.group(
                 Identifier.CODEC.fieldOf("map").forGetter(SabotageConfig::map),
-                Identifier.CODEC.optionalFieldOf("dimension", new Identifier("minecraft:overworld")).forGetter(SabotageConfig::dimension),
+                Identifier.CODEC.optionalFieldOf("dimension", Fantasy.DEFAULT_DIM_TYPE.getValue()).forGetter(SabotageConfig::dimension),
                 Codec.INT.optionalFieldOf("countdown_time", 5).forGetter(SabotageConfig::countdownTime),
                 Codec.INT.optionalFieldOf("grace_period", 15).forGetter(SabotageConfig::gracePeriod),
                 Codec.INT.optionalFieldOf("time_limit", 1200).forGetter(SabotageConfig::timeLimit),

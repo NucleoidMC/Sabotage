@@ -1,5 +1,10 @@
 {
   "type": "sabotage:sabotage",
   "map": "sabotage:village",
-  "chest_count": 125
+  "chest_count": 125,
+  "players": {
+    "min": 1,
+    "max": 64,
+    "threshold": 6
+  }
 }
