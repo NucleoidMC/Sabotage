@@ -11,6 +11,7 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import xyz.nucleoid.fantasy.RuntimeWorldConfig;
+import xyz.nucleoid.map_templates.TemplateRegion;
 import xyz.nucleoid.plasmid.game.*;
 import xyz.nucleoid.plasmid.game.common.GameWaitingLobby;
 import xyz.nucleoid.plasmid.game.event.GameActivityEvents;
@@ -73,7 +74,14 @@ public class SabotageWaiting {
 
     private PlayerOfferResult onOffer(PlayerOffer offer) {
         ServerPlayerEntity plr = offer.player();
-        return offer.accept(this.world, new Vec3d(0.0, 66.0, 0.0)).and(() -> {
+        TemplateRegion spawn = map.getTemplate().getMetadata().getFirstRegion("waiting_spawn");
+        Vec3d pos;
+        if (spawn != null) {
+            pos = spawn.getBounds().center();
+        } else {
+            pos = new Vec3d(0, 64, 0);
+        }
+        return offer.accept(this.world, pos).and(() -> {
             plr.changeGameMode(GameMode.ADVENTURE);
         });
     }

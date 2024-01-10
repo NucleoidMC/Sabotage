@@ -371,7 +371,7 @@ public class SabotageActive {
     }
 
     // tester only
-    public boolean testEntity(ServerPlayerEntity plr, BlockPos pos) {
+    public boolean testEntity(ServerPlayerEntity plr, Vec3d pos) {
         if (plr.isSpectator()) return true;
         if (gameState == GameStates.ACTIVE) {
             if (isTesterOnCooldown) {

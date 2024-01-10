@@ -36,7 +36,7 @@ public class TesterSign extends SignBlock implements BlockEntityProvider, Polyme
             ServerPlayerEntity plr = (ServerPlayerEntity) player;
             for (SabotageActive game : Sabotage.activeGames) {
                 if (game.getWorld().equals(world)) {
-                    if (!game.testEntity(plr, hit.getBlockPos())) {
+                    if (!game.testEntity(plr, hit.getPos())) {
                         plr.sendMessage(Text.translatable("sabotage.tester.fail").formatted(Formatting.YELLOW));
                     }
                     break;
