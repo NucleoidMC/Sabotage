@@ -1,0 +1,29 @@
+{
+  "type": "sabotage:sabotage",
+  "map": "sabotage:hellbound",
+  "countdown_time": 5,
+  "grace_period": 15,
+  "time_limit": 1200,
+  "end_delay": 10,
+  "chest_count": 200,
+  "innocent": {
+    "innocent_karma_penalty": 20,
+    "detective_karma_penalty": 100,
+    "saboteur_karma_award": 20
+  },
+  "detective": {
+    "innocent_karma_penalty": 20,
+    "detective_karma_penalty": 100,
+    "saboteur_karma_award": 100
+  },
+  "saboteur": {
+    "innocent_karma_award": 20,
+    "detective_karma_award": 100,
+    "saboteur_karma_penalty": 20
+  },
+  "players": {
+    "min": 1,
+    "max": 64,
+    "threshold": 6
+  }
+}
