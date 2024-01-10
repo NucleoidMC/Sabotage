@@ -7,10 +7,13 @@ import me.ellieis.Sabotage.game.GameStates;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
 import net.minecraft.block.*;
 import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.ActionResult;
@@ -83,19 +86,27 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
     }
 
     @Override
-    public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity plr, Hand hand, BlockHitResult hit) {
+    public ActionResult onUse(BlockState state, World woorld, BlockPos pos, PlayerEntity plr, Hand hand, BlockHitResult hit) {
+        if (woorld.isClient()) return ActionResult.PASS;
         SabotageActive game = null;
 
         for (SabotageActive activeGame : Sabotage.activeGames) {
-            if (activeGame.getWorld().equals(world)) {
+            if (activeGame.getWorld().equals(woorld)) {
                 game = activeGame;
                 break;
             }
         }
 
         if (game != null && game.gameState != GameStates.COUNTDOWN) {
+            ServerWorld world = (ServerWorld) woorld;
             world.playSound(null, pos, SoundEvents.BLOCK_CHEST_CLOSE, SoundCategory.BLOCKS, 1, 1.2f);
-            plr.getInventory().insertStack(getItemDrop());
+            PlayerInventory inventory = plr.getInventory();
+            ItemStack item = getItemDrop();
+            if (!inventory.insertStack(item)) {
+                // couldn't insert stack, inventory is likely full
+                world.spawnEntity(new ItemEntity(world, pos.getX(), pos.getY(), pos.getZ(), item));
+            }
+
             world.setBlockState(pos, Blocks.AIR.getDefaultState());
         }
         return ActionResult.FAIL;
