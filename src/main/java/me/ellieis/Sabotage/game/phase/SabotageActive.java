@@ -65,7 +65,7 @@ import static me.ellieis.Sabotage.game.custom.SabotageItems.DETECTIVE_SHEARS;
 public class SabotageActive {
 
     private final SabotageConfig config;
-    private final GameSpace gameSpace;
+    public final GameSpace gameSpace;
     private final SabotageMap map;
     private final ServerWorld world;
     private final MutablePlayerSet saboteurs;

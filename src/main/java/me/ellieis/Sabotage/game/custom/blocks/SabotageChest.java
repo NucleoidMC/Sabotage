@@ -5,6 +5,7 @@ import eu.pb4.polymer.core.api.block.PolymerBlock;
 import me.ellieis.Sabotage.Sabotage;
 import me.ellieis.Sabotage.game.GameStates;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
+import me.ellieis.Sabotage.game.statistics.SabotagePlayerStatistics;
 import net.minecraft.block.*;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.ItemEntity;
@@ -13,6 +14,7 @@ import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
@@ -25,6 +27,7 @@ import net.minecraft.world.World;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
+import static me.ellieis.Sabotage.Sabotage.MOD_ID;
 import static me.ellieis.Sabotage.game.custom.SabotageBlocks.SABOTAGE_CHEST_ENTITY;
 import static java.util.Map.entry;
 
@@ -96,7 +99,6 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
                 break;
             }
         }
-
         if (game != null && game.gameState != GameStates.COUNTDOWN) {
             ServerWorld world = (ServerWorld) woorld;
             world.playSound(null, pos, SoundEvents.BLOCK_CHEST_CLOSE, SoundCategory.BLOCKS, 1, 1.2f);
@@ -106,7 +108,7 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
                 // couldn't insert stack, inventory is likely full
                 world.spawnEntity(new ItemEntity(world, pos.getX(), pos.getY(), pos.getZ(), item));
             }
-
+            game.gameSpace.getStatistics().bundle(MOD_ID).forPlayer((ServerPlayerEntity) plr).increment(SabotagePlayerStatistics.CHESTS_OPENED, 1);
             world.setBlockState(pos, Blocks.AIR.getDefaultState());
         }
         return ActionResult.FAIL;
