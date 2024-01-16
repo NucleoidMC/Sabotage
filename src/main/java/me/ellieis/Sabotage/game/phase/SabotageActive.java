@@ -71,6 +71,7 @@ public class SabotageActive {
     private final MutablePlayerSet saboteurs;
     private final MutablePlayerSet detectives;
     private final MutablePlayerSet innocents;
+    private final MutablePlayerSet dead;
     // used in the game end message to list all saboteurs
     private PlayerSet initialSaboteurs;
     private final Map<ServerPlayerEntity, Team> playersOldTeams = new HashMap<>();
@@ -96,6 +97,7 @@ public class SabotageActive {
         this.saboteurs = new MutablePlayerSet(gameSpace.getServer());
         this.detectives = new MutablePlayerSet(gameSpace.getServer());
         this.innocents = new MutablePlayerSet(gameSpace.getServer());
+        this.dead = new MutablePlayerSet(gameSpace.getServer());
         this.karmaManager = new KarmaManager(gameSpace);
         this.taskScheduler = new TaskScheduler(gameSpace, world);
         Sabotage.activeGames.add(this);
@@ -492,9 +494,14 @@ public class SabotageActive {
 
     private boolean onChat(ServerPlayerEntity plr, SignedMessage signedMessage, MessageType.Parameters parameters) {
         if (gameState == GameStates.ACTIVE) {
-            detectives.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
-            innocents.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
-            saboteurs.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(getRoleColor(getPlayerRole(plr))).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+            if (plr.isSpectator()) {
+                dead.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.GRAY).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+            } else {
+                detectives.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+                innocents.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+                saboteurs.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(getRoleColor(getPlayerRole(plr))).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+                dead.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+            }
             // I have no idea what this is (or what it does), docs said to use it so I'm using it
             SentMessage.of(signedMessage);
             return true;
@@ -572,7 +579,7 @@ public class SabotageActive {
 
             plrs.sendMessage(Text.translatable("sabotage.kill_message", plr.getName(), plrs.size()).formatted(Formatting.YELLOW));
         }
-
+        dead.add(plr);
         return ActionResult.FAIL;
     }
 
@@ -581,6 +588,7 @@ public class SabotageActive {
         return offer.accept(this.world, new Vec3d(0.0, 66.0, 0.0)).and(() -> {
             // player joined after game start, so they're technically dead
             plr.changeGameMode(GameMode.SPECTATOR);
+            dead.add(plr);
         });
     }
 
