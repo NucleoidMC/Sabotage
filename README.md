@@ -9,8 +9,8 @@ Saboteurs can see everyone's roles, use this to your advantage. Target [Detectiv
 Avoid each map's Tester and the [Detective's](#detective) Portable Tester, as that is used to find out a player's role.
 
 ### Detective
-The Detective is a wild card to [Saboteurs](#saboteur) as they are equipped with a Portable Tester that can determine someone's role,  
-be careful using this though, as it has limited uses. [Innocents](#innocent) and [Saboteurs](#saboteur) both know who the Detectives are,  
+The Detective is a wild card to [Saboteurs](#saboteur) as they are equipped with a Portable Tester that can determine someone's role,
+be careful using this though, as it has limited uses. [Innocents](#innocent) and [Saboteurs](#saboteur) both know who the Detectives are,
 make sure to protect yourself or else you will be targetted.
 
 ### Innocent
