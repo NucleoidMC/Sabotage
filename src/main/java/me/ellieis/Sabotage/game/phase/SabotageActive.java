@@ -221,7 +221,7 @@ public class SabotageActive {
         if (sabCount < 1) {
             sabCount = 1;
         }
-        int detCount = playerCount / 2;
+        int detCount = playerCount / 8;
         for (ServerPlayerEntity plr : plrList) {
             if (detCount >= 1) {
                 detectives.add(plr);
