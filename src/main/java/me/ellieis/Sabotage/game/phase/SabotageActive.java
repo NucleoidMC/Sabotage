@@ -249,10 +249,6 @@ public class SabotageActive {
 
         // name tag coloring
         Scoreboard scoreboard = gameSpace.getServer().getScoreboard();
-        scoreboard.addTeam("unknown");
-        scoreboard.addTeam("saboteur");
-        scoreboard.addTeam("innocent");
-        scoreboard.addTeam("detective");
         Team unknown = scoreboard.getTeam("unknown");
         unknown.setColor(Formatting.YELLOW);
         Team saboteur = scoreboard.getTeam("saboteur");
@@ -489,6 +485,12 @@ public class SabotageActive {
                 game.globalSidebar.addPlayer(plr);
                 game.playersOldTeams.put(plr, plr.getScoreboardTeam());
             }
+
+            Scoreboard scoreboard = gameSpace.getServer().getScoreboard();
+            scoreboard.addTeam("unknown");
+            scoreboard.addTeam("saboteur");
+            scoreboard.addTeam("innocent");
+            scoreboard.addTeam("detective");
         });
     }
 
