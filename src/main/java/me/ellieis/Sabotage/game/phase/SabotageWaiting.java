@@ -55,8 +55,7 @@ public class SabotageWaiting {
         RuntimeWorldConfig worldConfig = new RuntimeWorldConfig()
                 .setGenerator(map.asChunkGenerator(server))
                 .setDimensionType(RegistryKey.of(RegistryKeys.DIMENSION_TYPE, config.dimension()))
-                .setTimeOfDay(6000);
-
+                .setTimeOfDay(config.time());
         return context.openWithWorld(worldConfig, (activity, world) -> {
             SabotageWaiting game = new SabotageWaiting(config, activity.getGameSpace(), map, world);
             GameWaitingLobby.addTo(activity, config.playerConfig());

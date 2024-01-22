@@ -6,10 +6,11 @@ import net.minecraft.util.Identifier;
 import xyz.nucleoid.fantasy.Fantasy;
 import xyz.nucleoid.plasmid.game.common.config.PlayerConfig;
 
-public record SabotageConfig(Identifier map, Identifier dimension, int countdownTime, int gracePeriod, int timeLimit, int endDelay, int chestCount, InnocentConfig innocentConfig, DetectiveConfig detectiveConfig, SaboteurConfig saboteurConfig, PlayerConfig playerConfig) {
+public record SabotageConfig(Identifier map, int time, Identifier dimension, int countdownTime, int gracePeriod, int timeLimit, int endDelay, int chestCount, InnocentConfig innocentConfig, DetectiveConfig detectiveConfig, SaboteurConfig saboteurConfig, PlayerConfig playerConfig) {
     public static final Codec<SabotageConfig> CODEC = RecordCodecBuilder.create(instance ->
         instance.group(
                 Identifier.CODEC.fieldOf("map").forGetter(SabotageConfig::map),
+                Codec.INT.optionalFieldOf("time", 6000).forGetter(SabotageConfig::time),
                 Identifier.CODEC.optionalFieldOf("dimension", Fantasy.DEFAULT_DIM_TYPE.getValue()).forGetter(SabotageConfig::dimension),
                 Codec.INT.optionalFieldOf("countdown_time", 5).forGetter(SabotageConfig::countdownTime),
                 Codec.INT.optionalFieldOf("grace_period", 15).forGetter(SabotageConfig::gracePeriod),
