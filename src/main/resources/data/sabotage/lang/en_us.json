@@ -4,29 +4,40 @@
   "block.sabotage.tester_wool": "Tester Wool",
   "block.sabotage.tester_sign": "Tester Sign",
   "item.sabotage.detective_shears": "Portable Tester",
+
+  "map.sabotage.random": "Random",
+  "map.sabotage.village": "Village",
+  "map.sabotage.hellbound": "Hellbound",
+  "map.sabotage.skybound": "Skybound",
+
   "sabotage.waiting": "Waiting for players.",
   "sabotage.full": "Game is full.",
+
   "sabotage.sidebar.countdown": "Get ready!",
   "sabotage.sidebar.grace_period.plural": " You have %s seconds left.",
   "sabotage.sidebar.grace_period.singular": "You have %s second left.",
   "sabotage.sidebar.role": "Your role is: %s",
   "sabotage.sidebar.role.desc": "Find and kill all %s",
   "sabotage.sidebar.time_left": "Time left: %02d:%02d",
+
   "sabotage.tester.message": "%s is being tested. Check back in %s seconds for the result",
   "sabotage.tester.fail": "This tester is on cooldown. Try again in a few seconds.",
   "sabotage.detective_shears_reveal": "%s was a %s!",
+
   "sabotage.game_start": "The game has started! You have %s seconds to collect items, gear, or hide. Your roles will be selected after the grace period.",
   "sabotage.game_end": "The game has ended! The following players were saboteurs: %s",
   "sabotage.game_end.innocents": "Congratulations to all alive %s and %s for figuring out who the %s were.",
   "sabotage.game_end.saboteurs": "Congratulations to all alive %s for eradicating all %s",
   "sabotage.game_end.none": "No one has won.",
   "sabotage.role_reveal": "You are a %s",
+
   "sabotage.innocent": "Innocent",
   "sabotage.innocents": "Innocents",
   "sabotage.detective": "Detective",
   "sabotage.detectives": "Detectives",
   "sabotage.saboteur": "Saboteur",
   "sabotage.saboteurs": "Saboteurs",
+
   "sabotage.kill_message": "%s was killed. %s players remain.",
   "sabotage.kill_message_attacker": "You killed %s %s"
 }
