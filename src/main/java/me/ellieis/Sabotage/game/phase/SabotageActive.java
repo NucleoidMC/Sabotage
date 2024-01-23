@@ -597,6 +597,7 @@ public class SabotageActive {
     private void onDestroy(GameCloseReason gameCloseReason) {
         Sabotage.activeGames.remove(this);
         Scoreboard scoreboard = gameSpace.getServer().getScoreboard();
+        scoreboard.removeTeam(scoreboard.getTeam("unknown"));
         scoreboard.removeTeam(scoreboard.getTeam("innocent"));
         scoreboard.removeTeam(scoreboard.getTeam("detective"));
         scoreboard.removeTeam(scoreboard.getTeam("saboteur"));
