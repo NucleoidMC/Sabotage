@@ -621,6 +621,8 @@ public class SabotageActive {
             detectives.remove(plr);
         } else if (role == Roles.INNOCENT) {
             innocents.remove(plr);
+        } else {
+            dead.remove(plr);
         }
         if (gameState != GameStates.ENDED) {
             if (role != Roles.NONE) {

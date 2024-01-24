@@ -10,6 +10,10 @@
   "map.sabotage.hellbound": "Hellbound",
   "map.sabotage.skybound": "Skybound",
 
+  "statistic.bundle.sabotage": "Sabotage",
+  "statistic.sabotage.chests_opened": "Chests Opened",
+  "statistic.sabotage.karma": "Karma",
+
   "sabotage.waiting": "Waiting for players.",
   "sabotage.full": "Game is full.",
 
