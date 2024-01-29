@@ -8,6 +8,7 @@ import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.ActionResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import xyz.nucleoid.fantasy.RuntimeWorldConfig;
@@ -19,6 +20,7 @@ import xyz.nucleoid.plasmid.game.event.GamePlayerEvents;
 import xyz.nucleoid.plasmid.game.player.PlayerOffer;
 import xyz.nucleoid.plasmid.game.player.PlayerOfferResult;
 import xyz.nucleoid.plasmid.game.rule.GameRuleType;
+import xyz.nucleoid.stimuli.event.block.BlockRandomTickEvent;
 
 public class SabotageWaiting {
     private final SabotageConfig config;
@@ -63,6 +65,7 @@ public class SabotageWaiting {
             rules(activity);
             activity.listen(GamePlayerEvents.OFFER, game::onOffer);
             activity.listen(GameActivityEvents.REQUEST_START, game::requestStart);
+            activity.listen(BlockRandomTickEvent.EVENT, (_block, _pos, _state) -> ActionResult.FAIL);
         });
     }
 

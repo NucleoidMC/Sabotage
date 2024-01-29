@@ -54,6 +54,7 @@ import xyz.nucleoid.plasmid.game.player.PlayerOfferResult;
 import xyz.nucleoid.plasmid.game.player.PlayerSet;
 import xyz.nucleoid.plasmid.game.rule.GameRuleType;
 import xyz.nucleoid.plasmid.util.PlayerRef;
+import xyz.nucleoid.stimuli.event.block.BlockRandomTickEvent;
 import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
 import xyz.nucleoid.stimuli.event.player.ReplacePlayerChatEvent;
 
@@ -475,6 +476,7 @@ public class SabotageActive {
             activity.listen(GamePlayerEvents.REMOVE, game::onPlayerRemove);
             activity.listen(GamePlayerEvents.OFFER, game::onOffer);
             activity.listen(GameActivityEvents.DESTROY, game::onDestroy);
+            activity.listen(BlockRandomTickEvent.EVENT, (_block, _pos, _state) -> ActionResult.FAIL);
             map.setWorld(world);
             map.generateChests();
             PlayerSet plrs = game.gameSpace.getPlayers();
