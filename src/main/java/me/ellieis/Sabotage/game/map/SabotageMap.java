@@ -113,6 +113,8 @@ public class SabotageMap {
         TemplateRegion spawn = spawns.get(new Random().nextInt(spawns.size()));
         Vec3d pos = spawn.getBounds().centerBottom();
         plr.teleport(world, pos.getX(), pos.getY(), pos.getZ(), spawn.getData().getFloat("Rotation"), 0);
+        plr.setOnGround(true);
+        plr.setVelocity(0,0,0);
         this.playerSpawnPos.put(new PlayerRef(plr.getUuid()), pos);
     }
 
