@@ -53,6 +53,7 @@ import xyz.nucleoid.plasmid.game.player.PlayerOffer;
 import xyz.nucleoid.plasmid.game.player.PlayerOfferResult;
 import xyz.nucleoid.plasmid.game.player.PlayerSet;
 import xyz.nucleoid.plasmid.game.rule.GameRuleType;
+import xyz.nucleoid.plasmid.game.stats.GameStatisticBundle;
 import xyz.nucleoid.plasmid.util.PlayerRef;
 import xyz.nucleoid.stimuli.event.block.BlockRandomTickEvent;
 import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
@@ -61,6 +62,7 @@ import xyz.nucleoid.stimuli.event.player.ReplacePlayerChatEvent;
 import java.util.*;
 import java.util.function.Consumer;
 
+import static me.ellieis.Sabotage.Sabotage.MOD_ID;
 import static me.ellieis.Sabotage.game.custom.SabotageItems.DETECTIVE_SHEARS;
 
 public class SabotageActive {
@@ -76,6 +78,7 @@ public class SabotageActive {
     // used in the game end message to list all saboteurs
     private PlayerSet initialSaboteurs;
     private final Map<ServerPlayerEntity, Team> playersOldTeams = new HashMap<>();
+    public final GameStatisticBundle stats;
     private final KarmaManager karmaManager;
     private final TaskScheduler taskScheduler;
     private boolean isTesterOnCooldown = false;
@@ -99,7 +102,8 @@ public class SabotageActive {
         this.detectives = new MutablePlayerSet(gameSpace.getServer());
         this.innocents = new MutablePlayerSet(gameSpace.getServer());
         this.dead = new MutablePlayerSet(gameSpace.getServer());
-        this.karmaManager = new KarmaManager(gameSpace);
+        this.stats = gameSpace.getStatistics().bundle(MOD_ID);
+        this.karmaManager = new KarmaManager(stats);
         this.taskScheduler = new TaskScheduler(gameSpace, world);
         Sabotage.activeGames.add(this);
     }

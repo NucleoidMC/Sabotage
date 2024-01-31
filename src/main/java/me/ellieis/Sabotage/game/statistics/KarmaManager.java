@@ -1,16 +1,15 @@
 package me.ellieis.Sabotage.game.statistics;
 
 import net.minecraft.server.network.ServerPlayerEntity;
-import xyz.nucleoid.plasmid.game.GameSpace;
 import xyz.nucleoid.plasmid.game.stats.GameStatisticBundle;
 
-import static me.ellieis.Sabotage.Sabotage.MOD_ID;
+import static me.ellieis.Sabotage.game.statistics.GlobalPlayerStatistics.TOTAL_KARMA;
 import static me.ellieis.Sabotage.game.statistics.SabotagePlayerStatistics.KARMA;
 
 public class KarmaManager {
     private final GameStatisticBundle stats;
-    public KarmaManager(GameSpace gameSpace) {
-        stats = gameSpace.getStatistics().bundle(MOD_ID);
+    public KarmaManager(GameStatisticBundle stats) {
+        this.stats = stats;
     }
     public int getKarma(ServerPlayerEntity plr) {
         return stats.forPlayer(plr).get(KARMA, 20);
@@ -24,6 +23,7 @@ public class KarmaManager {
     }
     public void incrementKarma(ServerPlayerEntity plr, int karma) {
         setKarma(plr, getKarma(plr) + karma);
+        stats.global().increment(TOTAL_KARMA, karma);
     }
     public void decrementKarma(ServerPlayerEntity plr, int karma) {
         setKarma(plr, getKarma(plr) - karma);

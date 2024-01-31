@@ -11,6 +11,8 @@
   "map.sabotage.skybound": "Skybound",
 
   "statistic.bundle.sabotage": "Sabotage",
+  "statistic.sabotage.total_chests_opened": "Total Chests Opened",
+  "statistic.sabotage.total_karma": "Total Karma",
   "statistic.sabotage.chests_opened": "Chests Opened",
   "statistic.sabotage.karma": "Karma",
 
