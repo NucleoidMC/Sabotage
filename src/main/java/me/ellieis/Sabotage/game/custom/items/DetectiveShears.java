@@ -24,7 +24,8 @@ public class DetectiveShears extends Item implements PolymerItem {
         World world = plr.getEntityWorld();
         if (!world.isClient()) {
             for (SabotageActive game : Sabotage.activeGames) {
-                if (game.getWorld().equals(world)) {
+                if (game.getWorld().equals(world) && (item.getMaxDamage() - item.getDamage()) > 1) {
+                    item.setDamage(item.getDamage() + 50);
                     game.testEntity((ServerPlayerEntity) plr, entity);
                     break;
                 }
