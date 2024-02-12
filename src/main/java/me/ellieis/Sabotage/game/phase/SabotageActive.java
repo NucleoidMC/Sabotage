@@ -30,6 +30,7 @@ import net.minecraft.network.packet.s2c.play.PositionFlag;
 import net.minecraft.network.packet.s2c.play.TeamS2CPacket;
 import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.scoreboard.Team;
+import net.minecraft.scoreboard.number.BlankNumberFormat;
 import net.minecraft.screen.ScreenTexts;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
@@ -210,6 +211,12 @@ public class SabotageActive {
             detectiveSidebar.removePlayer(plr);
             innocentSidebar.removePlayer(plr);
         });
+
+        globalSidebar.setDefaultNumberFormat(BlankNumberFormat.INSTANCE);
+        innocentSidebar.setDefaultNumberFormat(BlankNumberFormat.INSTANCE);
+        detectiveSidebar.setDefaultNumberFormat(BlankNumberFormat.INSTANCE);
+        saboteurSidebar.setDefaultNumberFormat(BlankNumberFormat.INSTANCE);
+
         saboteurs.forEach(plr -> saboteurSidebar.addPlayer(plr));
         detectives.forEach(plr -> detectiveSidebar.addPlayer(plr));
         innocents.forEach(plr -> innocentSidebar.addPlayer(plr));
