@@ -54,8 +54,18 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
             entry(Items.GOLDEN_APPLE, 1),
             entry(Items.BOW, 4),
             entry(Items.CROSSBOW, 4),
+            // to-do: make firework explosive
             entry(Items.FIREWORK_ROCKET, 10),
             entry(Items.ARROW, 20)
+    );
+    private static final Map<Item, Integer> durabilities = Map.ofEntries(
+            entry(Items.GOLDEN_AXE, 5),
+            entry(Items.IRON_SWORD, 250),
+            entry(Items.WOODEN_AXE, 10),
+            entry(Items.IRON_CHESTPLATE, 100),
+            entry(Items.IRON_LEGGINGS, 150),
+            entry(Items.BOW, 100),
+            entry(Items.CROSSBOW, 30)
     );
     @FunctionalInterface
     private interface ThreadLocalRandomWrapper {
@@ -75,7 +85,13 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
     }
     private static ItemStack getItemDrop() {
         Item item = getFromWeightedMap(items);
-        return new ItemStack(item);
+        ItemStack stack = new ItemStack(item);
+        if (durabilities.get(item) != null) {
+            int range = durabilities.get(item);
+            int durability = (int) Math.floor(Math.random() * range);
+            stack.setDamage(stack.getMaxDamage() - durability);
+        }
+        return stack;
     }
     public SabotageChest(Settings settings, Block virtualBlock) {
         super(settings, () -> SABOTAGE_CHEST_ENTITY);
