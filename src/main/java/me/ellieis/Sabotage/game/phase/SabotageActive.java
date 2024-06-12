@@ -300,6 +300,8 @@ public class SabotageActive {
                         (role == Roles.SABOTEUR) ? Formatting.RED : Formatting.RESET;
     }
     public void changeTeam(ServerPlayerEntity plr, ServerPlayerEntity other, TeamS2CPacket.Operation operation) {
+        if (gameState == GameStates.COUNTDOWN || gameState == GameStates.GRACE_PERIOD) return;
+
         Scoreboard scoreboard = gameSpace.getServer().getScoreboard();
         Team unknown = scoreboard.getTeam("unknown");
         Team innocent = scoreboard.getTeam("innocent");
@@ -526,6 +528,10 @@ public class SabotageActive {
 
     private ActionResult onDeath(ServerPlayerEntity plr, DamageSource damageSource) {
         // remove player from team
+        Entity entityAttacker = damageSource.getAttacker();
+        Roles plrRole = getPlayerRole(plr);
+        plr.changeGameMode(GameMode.SPECTATOR);
+
         changeTeam(plr, plr, TeamS2CPacket.Operation.REMOVE);
         for (ServerPlayerEntity player : getAlivePlayers()) {
             changeTeam(plr, player, TeamS2CPacket.Operation.REMOVE);
@@ -536,9 +542,7 @@ public class SabotageActive {
             return ActionResult.FAIL;
         }
 
-        Entity entityAttacker = damageSource.getAttacker();
-        Roles plrRole = getPlayerRole(plr);
-        plr.changeGameMode(GameMode.SPECTATOR);
+
         if (entityAttacker instanceof ServerPlayerEntity attacker) {
             Roles attackerRole = getPlayerRole(attacker);
             // surely there's a better way to do this..
