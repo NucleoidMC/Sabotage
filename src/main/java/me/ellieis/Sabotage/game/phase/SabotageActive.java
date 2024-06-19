@@ -161,16 +161,39 @@ public class SabotageActive {
     public void updateSidebars() {
         long timeLeft = (long) Math.abs(Math.floor((world.getTime() / 20) - (startTime / 20)) - config.countdownTime() - config.gracePeriod() - config.timeLimit());
         long minutes = timeLeft / 60;
-        String seconds = Long.toString(timeLeft % 60);
-        if (seconds.length() == 1) {
-            // Pad seconds with an extra 0 when only one digit
-            // If someone knows a better way to do this, be my guest
-            seconds = "0" + seconds;
+        String seconds;
+        if (timeLeft % 60 > 10) {
+            seconds = Long.toString(timeLeft % 60);
+        } else {
+            seconds = "0" + timeLeft % 60;
         }
-        saboteurSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.time_left", minutes, seconds)));        saboteurSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.time_left", minutes, seconds)));
-        detectiveSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.time_left", minutes, seconds)));
-        innocentSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.time_left", minutes, seconds)));
-        globalSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.time_left", minutes, seconds)));
+
+        // saboteurs
+        saboteurSidebar.set(content -> {
+            content.add(ScreenTexts.EMPTY);
+            content.add(Text.translatable("sabotage.sidebar.role", Text.translatable("sabotage.saboteur").formatted(Formatting.RED)));
+            content.add(Text.translatable("sabotage.sidebar.role.desc", Text.translatable("sabotage.innocents").formatted(Formatting.GREEN)));
+            content.add(ScreenTexts.EMPTY);
+            content.add(Text.translatable("sabotage.sidebar.time_left", minutes, seconds));
+        });
+
+        // detectives
+        detectiveSidebar.set(content -> {
+            content.add(ScreenTexts.EMPTY);
+            content.add(Text.translatable("sabotage.sidebar.role", Text.translatable("sabotage.detective").formatted(Formatting.DARK_BLUE)));
+            content.add(Text.translatable("sabotage.sidebar.role.desc", Text.translatable("sabotage.saboteurs").formatted(Formatting.RED)));
+            content.add(ScreenTexts.EMPTY);
+            content.add(Text.translatable("sabotage.sidebar.time_left", minutes, seconds));
+        });
+
+        // innocents
+        innocentSidebar.set(content -> {
+            content.add(ScreenTexts.EMPTY);
+            content.add(Text.translatable("sabotage.sidebar.role", Text.translatable("sabotage.innocent").formatted(Formatting.GREEN)));
+            content.add(Text.translatable("sabotage.sidebar.role.desc", Text.translatable("sabotage.saboteurs").formatted(Formatting.RED)));
+            content.add(ScreenTexts.EMPTY);
+            content.add(Text.translatable("sabotage.sidebar.time_left", minutes, seconds));
+        });
     }
 
     public void setSidebars() {
@@ -181,36 +204,7 @@ public class SabotageActive {
         innocentSidebar = widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
         innocentSidebar.setPriority(Sidebar.Priority.MEDIUM);
 
-        // saboteurs
-        saboteurSidebar.addLines(ScreenTexts.EMPTY,
-                Text.translatable("sabotage.sidebar.role", Text.translatable("sabotage.saboteur").formatted(Formatting.RED)),
-                Text.translatable("sabotage.sidebar.role.desc", Text.translatable("sabotage.innocents").formatted(Formatting.GREEN)),
-                ScreenTexts.EMPTY,
-                // this will be where the time left is located
-                ScreenTexts.EMPTY
-        );
-
-        // detectives
-        detectiveSidebar.addLines(ScreenTexts.EMPTY,
-                Text.translatable("sabotage.sidebar.role", Text.translatable("sabotage.detective").formatted(Formatting.DARK_BLUE)),
-                Text.translatable("sabotage.sidebar.role.desc", Text.translatable("sabotage.saboteurs").formatted(Formatting.RED)),
-                ScreenTexts.EMPTY,
-                // this will be where the time left is located
-                ScreenTexts.EMPTY
-        );
-
-        // innocents
-        innocentSidebar.addLines(ScreenTexts.EMPTY,
-                Text.translatable("sabotage.sidebar.role", Text.translatable("sabotage.innocent").formatted(Formatting.GREEN)),
-                Text.translatable("sabotage.sidebar.role.desc", Text.translatable("sabotage.saboteurs").formatted(Formatting.RED)),
-                ScreenTexts.EMPTY,
-                // this will be where the time left is located
-                ScreenTexts.EMPTY
-        );
-
-        // global (spectators and dead players)
-        globalSidebar.setLine(0, Text.empty());
-
+        updateSidebars();
         gameSpace.getPlayers().forEach(plr -> {
             saboteurSidebar.removePlayer(plr);
             detectiveSidebar.removePlayer(plr);
@@ -225,7 +219,6 @@ public class SabotageActive {
         saboteurs.forEach(plr -> saboteurSidebar.addPlayer(plr));
         detectives.forEach(plr -> detectiveSidebar.addPlayer(plr));
         innocents.forEach(plr -> innocentSidebar.addPlayer(plr));
-        updateSidebars();
     }
 
     public void pickRoles() {
@@ -446,7 +439,7 @@ public class SabotageActive {
             game.widgets = GlobalWidgets.addTo(activity);
             game.globalSidebar = game.widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
             game.globalSidebar.setPriority(Sidebar.Priority.LOW);
-            game.globalSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.countdown")));
+            game.globalSidebar.addLines(Text.translatable("sabotage.sidebar.countdown"));
 
             rules(activity);
             activity.listen(GameActivityEvents.TICK, game::onTick);
@@ -464,6 +457,8 @@ public class SabotageActive {
             for (ServerPlayerEntity plr : plrs) {
                 game.map.spawnEntity(world, plr);
                 game.globalSidebar.addPlayer(plr);
+                plr.setOnFire(false);
+                plr.setFireTicks(0);
             }
 
         });
@@ -629,7 +624,7 @@ public class SabotageActive {
                     Start();
                 } else {
                     int secondsLeft = gracePeriod - secondsSinceStart;
-                    this.globalSidebar.setLine(SidebarLine.create(0, Text.translatable("sabotage.sidebar.grace_period." + ((secondsLeft == 1) ? "singular" : "plural"), secondsLeft)));
+                    this.globalSidebar.set(content -> content.add(Text.translatable("sabotage.sidebar.grace_period." + ((secondsLeft == 1) ? "singular" : "plural"), secondsLeft)));
                 }
             }
 
