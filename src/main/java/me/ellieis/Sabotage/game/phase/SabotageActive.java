@@ -78,7 +78,6 @@ public class SabotageActive {
     private final MutablePlayerSet dead;
     // used in the game end message to list all saboteurs
     private PlayerSet initialSaboteurs;
-    private final Map<ServerPlayerEntity, Team> playersOldTeams = new HashMap<>();
     public final GameStatisticBundle stats;
     private final KarmaManager karmaManager;
     private final TaskScheduler taskScheduler;
@@ -108,6 +107,7 @@ public class SabotageActive {
         this.taskScheduler = new TaskScheduler(gameSpace, world);
         Sabotage.activeGames.add(this);
     }
+
     public ServerWorld getWorld() {
         return world;
     }
@@ -115,6 +115,7 @@ public class SabotageActive {
         activity.allow(GameRuleType.FALL_DAMAGE);
         activity.allow(GameRuleType.PVP);
     }
+
     private static void rules(GameActivity activity) {
         activity.allow(GameRuleType.INTERACTION);
         activity.allow(GameRuleType.PICKUP_ITEMS);
@@ -132,7 +133,11 @@ public class SabotageActive {
         activity.deny(GameRuleType.BREAK_BLOCKS);
         activity.deny(GameRuleType.CRAFTING);
     }
+
     private static String getPlayerNamesInSet(PlayerSet plrs) {
+        if (plrs == null) {
+            return "";
+        }
         String result = "";
         for (ServerPlayerEntity plr : plrs) {
             result = result + plr.getName().getString() + ", ";
@@ -259,31 +264,9 @@ public class SabotageActive {
             detective.getInventory().insertStack(new ItemStack(DETECTIVE_SHEARS));
         }
 
-        // name tag coloring
-        Scoreboard scoreboard = gameSpace.getServer().getScoreboard();
-        Team unknown = scoreboard.getTeam("unknown");
-        unknown.setColor(Formatting.YELLOW);
-        Team saboteur = scoreboard.getTeam("saboteur");
-        saboteur.setColor(Formatting.RED);
-        Team detective = scoreboard.getTeam("detective");
-        detective.setColor(Formatting.DARK_BLUE);
-        Team innocent = scoreboard.getTeam("innocent");
-        innocent.setColor(Formatting.GREEN);
-        for (ServerPlayerEntity player : getAlivePlayers()) {
-            Roles role = getPlayerRole(player);
-            if (role == Roles.DETECTIVE) {
-                innocents.sendPacket(TeamS2CPacket.changePlayerTeam(detective, player.getGameProfile().getName(), TeamS2CPacket.Operation.ADD));
-                detectives.sendPacket(TeamS2CPacket.changePlayerTeam(detective, player.getGameProfile().getName(), TeamS2CPacket.Operation.ADD));
-                saboteurs.sendPacket(TeamS2CPacket.changePlayerTeam(detective, player.getGameProfile().getName(), TeamS2CPacket.Operation.ADD));
-            } else {
-                innocents.sendPacket(TeamS2CPacket.changePlayerTeam(unknown, player.getGameProfile().getName(), TeamS2CPacket.Operation.ADD));
-                detectives.sendPacket(TeamS2CPacket.changePlayerTeam(unknown, player.getGameProfile().getName(), TeamS2CPacket.Operation.ADD));
-                saboteurs.sendPacket(TeamS2CPacket.changePlayerTeam((role == Roles.INNOCENT) ? innocent : (role == Roles.SABOTEUR) ? saboteur : unknown, player.getGameProfile().getName(), TeamS2CPacket.Operation.ADD));
-            }
-        }
-
         setSidebars();
     }
+
     public Roles getPlayerRole(ServerPlayerEntity plr) {
         if (innocents.contains(plr)) {
             return Roles.INNOCENT;
@@ -294,30 +277,13 @@ public class SabotageActive {
         }
         return Roles.NONE;
     }
+
     public static Formatting getRoleColor(Roles role) {
         return (role == Roles.INNOCENT) ? Formatting.GREEN :
                 (role == Roles.DETECTIVE) ? Formatting.DARK_BLUE :
                         (role == Roles.SABOTEUR) ? Formatting.RED : Formatting.RESET;
     }
-    public void changeTeam(ServerPlayerEntity plr, ServerPlayerEntity other, TeamS2CPacket.Operation operation) {
-        if (gameState == GameStates.COUNTDOWN || gameState == GameStates.GRACE_PERIOD) return;
 
-        Scoreboard scoreboard = gameSpace.getServer().getScoreboard();
-        Team unknown = scoreboard.getTeam("unknown");
-        Team innocent = scoreboard.getTeam("innocent");
-        Team detective = scoreboard.getTeam("detective");
-        Team saboteur = scoreboard.getTeam("saboteur");
-        if (getPlayerRole(plr) == Roles.SABOTEUR) {
-            Roles otherPlrRole = getPlayerRole(other);
-            plr.networkHandler.sendPacket(TeamS2CPacket.changePlayerTeam((otherPlrRole == Roles.INNOCENT) ? innocent : (otherPlrRole == Roles.SABOTEUR) ? saboteur : (otherPlrRole == Roles.DETECTIVE) ? detective : unknown, other.getGameProfile().getName(), operation));
-        } else {
-            if (getPlayerRole(other) == Roles.DETECTIVE) {
-                plr.networkHandler.sendPacket(TeamS2CPacket.changePlayerTeam(detective, other.getGameProfile().getName(), operation));
-            } else {
-                plr.networkHandler.sendPacket(TeamS2CPacket.changePlayerTeam(unknown, other.getGameProfile().getName(), operation));
-            }
-        }
-    }
     private Text createAttackerKillMessage(ServerPlayerEntity plr, int karma) {
         Roles role = getPlayerRole(plr);
         Formatting victimColor = getRoleColor(role);
@@ -351,7 +317,7 @@ public class SabotageActive {
 
     }
 
-    // portable tester onlu
+    // portable tester only
     public void testEntity(ServerPlayerEntity plr, LivingEntity entity) {
         if (plr.isSpectator() || entity.isSpectator()) return;
         if (plr.hasStatusEffect(StatusEffects.SLOWNESS) || entity.hasStatusEffect(StatusEffects.SLOWNESS)) {
@@ -498,14 +464,8 @@ public class SabotageActive {
             for (ServerPlayerEntity plr : plrs) {
                 game.map.spawnEntity(world, plr);
                 game.globalSidebar.addPlayer(plr);
-                game.playersOldTeams.put(plr, plr.getScoreboardTeam());
             }
 
-            Scoreboard scoreboard = gameSpace.getServer().getScoreboard();
-            scoreboard.addTeam("unknown");
-            scoreboard.addTeam("saboteur");
-            scoreboard.addTeam("innocent");
-            scoreboard.addTeam("detective");
         });
     }
 
@@ -532,13 +492,7 @@ public class SabotageActive {
         Roles plrRole = getPlayerRole(plr);
         plr.changeGameMode(GameMode.SPECTATOR);
 
-        changeTeam(plr, plr, TeamS2CPacket.Operation.REMOVE);
-        for (ServerPlayerEntity player : getAlivePlayers()) {
-            changeTeam(plr, player, TeamS2CPacket.Operation.REMOVE);
-            changeTeam(player, plr, TeamS2CPacket.Operation.REMOVE);
-        }
-
-        if (gameState == GameStates.ENDED) {
+        if (gameState != GameStates.ACTIVE) {
             return ActionResult.FAIL;
         }
 
@@ -613,24 +567,9 @@ public class SabotageActive {
 
     private void onDestroy(GameCloseReason gameCloseReason) {
         Sabotage.activeGames.remove(this);
-        Scoreboard scoreboard = gameSpace.getServer().getScoreboard();
-        scoreboard.removeTeam(scoreboard.getTeam("unknown"));
-        scoreboard.removeTeam(scoreboard.getTeam("innocent"));
-        scoreboard.removeTeam(scoreboard.getTeam("detective"));
-        scoreboard.removeTeam(scoreboard.getTeam("saboteur"));
     }
 
     private void onPlayerRemove(ServerPlayerEntity plr) {
-        // remove player from team
-        changeTeam(plr, plr, TeamS2CPacket.Operation.REMOVE);
-        for (ServerPlayerEntity player : getAlivePlayers()) {
-            changeTeam(plr, player, TeamS2CPacket.Operation.REMOVE);
-            changeTeam(player, plr, TeamS2CPacket.Operation.REMOVE);
-        }
-        Team oldTeam = playersOldTeams.get(plr);
-        if (oldTeam != null) {
-            plr.networkHandler.sendPacket(TeamS2CPacket.changePlayerTeam(oldTeam, plr.getGameProfile().getName(), TeamS2CPacket.Operation.ADD));
-        }
         Roles role = getPlayerRole(plr);
         if (role == Roles.SABOTEUR) {
             saboteurs.remove(plr);
