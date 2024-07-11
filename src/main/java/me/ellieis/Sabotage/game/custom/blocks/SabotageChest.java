@@ -15,6 +15,7 @@ import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
@@ -23,6 +24,7 @@ import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
 import java.util.Map;
@@ -118,14 +120,19 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
         if (game != null && game.gameState != GameStates.COUNTDOWN) {
             ServerWorld world = (ServerWorld) woorld;
             world.playSound(null, pos, SoundEvents.BLOCK_CHEST_CLOSE, SoundCategory.BLOCKS, 1, 1.2f);
+            Vec3d center = pos.toCenterPos();
+            world.spawnParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, center.x, center.y, center.z, 16, 0, 0, 0, 0.5);
+
             PlayerInventory inventory = plr.getInventory();
             ItemStack item = getItemDrop();
             if (!inventory.insertStack(item)) {
                 // couldn't insert stack, inventory is likely full
                 world.spawnEntity(new ItemEntity(world, pos.getX(), pos.getY(), pos.getZ(), item));
             }
+
             game.stats.forPlayer((ServerPlayerEntity) plr).increment(SabotagePlayerStatistics.CHESTS_OPENED, 1);
             game.stats.global().increment(GlobalPlayerStatistics.TOTAL_CHESTS_OPENED, 1);
+
             world.setBlockState(pos, Blocks.AIR.getDefaultState());
         }
         return ActionResult.FAIL;
