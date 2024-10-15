@@ -227,10 +227,7 @@ public class SabotageActive {
         // need to make a new list from .toList to make it mutable
         List<ServerPlayerEntity> plrList = new ArrayList<>(plrs.stream().toList());
         Collections.shuffle(plrList);
-        int sabCount = playerCount / 3;
-        if (sabCount < 1) {
-            sabCount = 1;
-        }
+        int sabCount = Math.max(playerCount / 3, 1);
         int detCount = playerCount / 8;
         for (ServerPlayerEntity plr : plrList) {
             if (detCount >= 1) {
@@ -370,6 +367,21 @@ public class SabotageActive {
                 }
                 world.playSound(null, plr.getBlockPos(), SoundEvents.BLOCK_IRON_DOOR_OPEN, SoundCategory.BLOCKS, 1, 0.5f);
             };
+
+            // sounds for testing
+            for (int i = 1; i <= 20; i++) {
+                int finalI = i;
+                taskScheduler.addTask(new Task((int) (world.getTime() + (10 * i)), (gameSpace) -> {
+                    world.playSound(null,
+                            pos.getX(),
+                            pos.getY(),
+                            pos.getZ(),
+                            SoundEvents.BLOCK_NOTE_BLOCK_BASS.value(),
+                            SoundCategory.BLOCKS,
+                            1.0f,
+                            (float) Math.min((0.5 + (0.05 * finalI)), 1.4));
+                }));
+            }
             taskScheduler.addTask(new Task(revealTime - 100, reminder));
             taskScheduler.addTask(new Task(revealTime, reveal));
         }
@@ -377,19 +389,23 @@ public class SabotageActive {
     }
     private void awardPlayerKill(ServerPlayerEntity attacker, ServerPlayerEntity plr, Roles plrRole, int innocentKarma, int detectiveKarma, int saboteurKarma) {
         // attacker is confirmed innocent or detective
+        // 0.9 -> 1.05
         switch(plrRole) {
             case INNOCENT -> {
                 karmaManager.decrementKarma(attacker, innocentKarma);
+                attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_DETECT_PLAYER, SoundCategory.RECORDS, 1, 1);
                 attacker.sendMessage(createAttackerKillMessage(plr, -innocentKarma));
             }
 
             case DETECTIVE -> {
                 karmaManager.decrementKarma(attacker, detectiveKarma);
+                attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_DETECT_PLAYER, SoundCategory.RECORDS, 1, 1);
                 attacker.sendMessage(createAttackerKillMessage(plr, -detectiveKarma));
             }
 
             case SABOTEUR -> {
                 karmaManager.incrementKarma(attacker, saboteurKarma);
+                attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_OPEN_SHUTTER, SoundCategory.RECORDS, 1, 1f);
                 attacker.sendMessage(createAttackerKillMessage(plr, saboteurKarma));
             }
         }
@@ -430,6 +446,7 @@ public class SabotageActive {
         } else if (endReason == EndReason.TIMEOUT) {
             plrs.sendMessage(Text.translatable("sabotage.game_end.none"));
         }
+        gameSpace.getPlayers().playSound(SoundEvents.ENTITY_PLAYER_LEVELUP);
     }
     public static void Open(GameSpace gameSpace, ServerWorld world, SabotageMap map, SabotageConfig config) {
         gameSpace.setActivity(activity -> {
@@ -486,7 +503,7 @@ public class SabotageActive {
         Entity entityAttacker = damageSource.getAttacker();
         Roles plrRole = getPlayerRole(plr);
         plr.changeGameMode(GameMode.SPECTATOR);
-
+        plr.playSound(SoundEvents.ENTITY_COW_DEATH, SoundCategory.PLAYERS, 1, 0.7f);
         if (gameState != GameStates.ACTIVE) {
             return ActionResult.FAIL;
         }
@@ -501,16 +518,20 @@ public class SabotageActive {
                     switch(plrRole) {
                         case INNOCENT -> {
                             karmaManager.incrementKarma(attacker, config.innocentKarmaAward());
+                            attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_OPEN_SHUTTER, SoundCategory.RECORDS, 1, 1f);
                             attacker.sendMessage(createAttackerKillMessage(plr, config.innocentKarmaAward()));
                         }
 
                         case DETECTIVE -> {
                             karmaManager.incrementKarma(attacker, config.detectiveKarmaAward());
+                            attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_OPEN_SHUTTER, SoundCategory.RECORDS, 1, 1f);
+                            attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_DETECT_PLAYER, SoundCategory.RECORDS, 0.5f, 1f);
                             attacker.sendMessage(createAttackerKillMessage(plr, config.detectiveKarmaAward()));
                         }
 
                         case SABOTEUR -> {
                             karmaManager.decrementKarma(attacker, config.saboteurKarmaPenalty());
+                            attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_DETECT_PLAYER, SoundCategory.RECORDS, 1, 1f);
                             attacker.sendMessage(createAttackerKillMessage(plr, -config.saboteurKarmaPenalty()));
                         }
                     }
