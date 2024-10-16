@@ -27,9 +27,6 @@ import net.minecraft.network.message.MessageType;
 import net.minecraft.network.message.SentMessage;
 import net.minecraft.network.message.SignedMessage;
 import net.minecraft.network.packet.s2c.play.PositionFlag;
-import net.minecraft.network.packet.s2c.play.TeamS2CPacket;
-import net.minecraft.scoreboard.Scoreboard;
-import net.minecraft.scoreboard.Team;
 import net.minecraft.scoreboard.number.BlankNumberFormat;
 import net.minecraft.screen.ScreenTexts;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -152,7 +149,7 @@ public class SabotageActive {
     private PlayerSet getAlivePlayers() {
         MutablePlayerSet plrs = gameSpace.getPlayers().copy(gameSpace.getServer());
         plrs.forEach(plr -> {
-            if (plr.isSpectator()) {
+            if (plr.isSpectator() || dead.contains(plr)) {
                 plrs.remove(plr);
             }
         });
@@ -504,6 +501,7 @@ public class SabotageActive {
         Roles plrRole = getPlayerRole(plr);
         plr.changeGameMode(GameMode.SPECTATOR);
         plr.playSound(SoundEvents.ENTITY_COW_DEATH, SoundCategory.PLAYERS, 1, 0.7f);
+        dead.add(plr);
         if (gameState != GameStates.ACTIVE) {
             return ActionResult.FAIL;
         }
@@ -568,7 +566,6 @@ public class SabotageActive {
 
             plrs.sendMessage(Text.translatable("sabotage.kill_message", plr.getName(), plrs.size()).formatted(Formatting.YELLOW));
         }
-        dead.add(plr);
         return ActionResult.FAIL;
     }
 
@@ -596,6 +593,9 @@ public class SabotageActive {
         } else {
             dead.remove(plr);
         }
+
+        // get around alive check by doing this
+        plr.changeGameMode(GameMode.SPECTATOR);
         if (gameState != GameStates.ENDED) {
             if (role != Roles.NONE) {
                 EndReason endReason = checkWinCondition();
