@@ -20,6 +20,7 @@ import net.minecraft.util.Formatting;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3i;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
@@ -42,7 +43,8 @@ public class WallTesterSign extends WallSignBlock implements PolymerBlock {
 
     @Override
     public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
-        BaseTesterSign.onUse(world, player, hit);
+
+        BaseTesterSign.onUse(world, player, pos.subtract(new Vec3i(0, 1, 0)));
         return ActionResult.FAIL;
     }
 

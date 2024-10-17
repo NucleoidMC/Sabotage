@@ -14,13 +14,13 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
 public class BaseTesterSign  {
-    public static void onUse(World world, PlayerEntity player, BlockHitResult hit) {
+    public static void onUse(World world, PlayerEntity player, BlockPos pos) {
         if (!world.isClient()) {
             ServerPlayerEntity plr = (ServerPlayerEntity) player;
 
             for (SabotageActive game : Sabotage.activeGames) {
                 if (game.getWorld().equals(world)) {
-                    if (!game.testEntity(plr, hit.getBlockPos().toCenterPos())) {
+                    if (!game.testEntity(plr, pos.toCenterPos())) {
                         plr.sendMessage(Text.translatable("sabotage.tester.fail").formatted(Formatting.YELLOW));
                     }
                     break;

@@ -32,7 +32,7 @@ public class TesterSign extends SignBlock implements PolymerBlock, BlockEntityPr
 
     @Override
     public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockHitResult hit) {
-        BaseTesterSign.onUse(world, player, hit);
+        BaseTesterSign.onUse(world, player, pos);
         return ActionResult.FAIL;
     }
 
