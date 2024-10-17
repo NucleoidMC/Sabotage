@@ -22,6 +22,8 @@
   "sabotage.sidebar.countdown": "Get ready!",
   "sabotage.sidebar.grace_period.plural": " You have %s seconds left.",
   "sabotage.sidebar.grace_period.singular": "You have %s second left.",
+  "sabotage.sidebar.dead": "You are dead.",
+  "sabotage.sidebar.dead.desc": "You cannot talk to alive players.",
   "sabotage.sidebar.role": "Your role is: %s",
   "sabotage.sidebar.role.desc": "Find and kill all %s",
   "sabotage.sidebar.time_left": "Time left: %02d:%02d",

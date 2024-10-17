@@ -191,6 +191,15 @@ public class SabotageActive {
             content.add(ScreenTexts.EMPTY);
             content.add(Text.translatable("sabotage.sidebar.time_left", minutes, seconds));
         });
+
+        // dead
+        globalSidebar.set(content -> {
+            content.add(ScreenTexts.EMPTY);
+            content.add(Text.translatable("sabotage.sidebar.dead"));
+            content.add(Text.translatable("sabotage.sidebar.dead.desc"));
+            content.add(ScreenTexts.EMPTY);
+            content.add(Text.translatable("sabotage.sidebar.time_left", minutes, seconds));
+        });
     }
 
     public void setSidebars() {
@@ -549,10 +558,13 @@ public class SabotageActive {
 
         if (plrRole == Roles.SABOTEUR) {
             saboteurs.remove(plr);
+            saboteurSidebar.removePlayer(plr);
         } else if (plrRole == Roles.DETECTIVE) {
             detectives.remove(plr);
+            detectiveSidebar.removePlayer(plr);
         } else if (plrRole == Roles.INNOCENT) {
             innocents.remove(plr);
+            innocentSidebar.removePlayer(plr);
         }
 
         EndReason endReason = checkWinCondition();
@@ -574,6 +586,7 @@ public class SabotageActive {
         return offer.accept(this.world, new Vec3d(0.0, 66.0, 0.0)).and(() -> {
             // player joined after game start, so they're technically dead
             plr.changeGameMode(GameMode.SPECTATOR);
+            globalSidebar.addPlayer(plr);
             dead.add(plr);
         });
     }
@@ -586,14 +599,17 @@ public class SabotageActive {
         Roles role = getPlayerRole(plr);
         if (role == Roles.SABOTEUR) {
             saboteurs.remove(plr);
+            saboteurSidebar.removePlayer(plr);
         } else if (role == Roles.DETECTIVE) {
             detectives.remove(plr);
+            detectiveSidebar.removePlayer(plr);
         } else if (role == Roles.INNOCENT) {
             innocents.remove(plr);
+            innocentSidebar.removePlayer(plr);
         } else {
             dead.remove(plr);
         }
-
+        globalSidebar.removePlayer(plr);
         // get around alive check by doing this
         plr.changeGameMode(GameMode.SPECTATOR);
         if (gameState != GameStates.ENDED) {
