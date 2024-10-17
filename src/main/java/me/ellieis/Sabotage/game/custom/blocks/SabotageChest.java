@@ -134,6 +134,7 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
             game.stats.global().increment(GlobalPlayerStatistics.TOTAL_CHESTS_OPENED, 1);
 
             world.setBlockState(pos, Blocks.AIR.getDefaultState());
+            world.updateNeighbors(pos, Blocks.AIR);
         }
         return ActionResult.FAIL;
     }
