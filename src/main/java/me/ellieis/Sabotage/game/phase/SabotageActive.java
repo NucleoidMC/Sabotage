@@ -576,7 +576,7 @@ public class SabotageActive {
                 plrs.remove(attacker);
             }
 
-            plrs.sendMessage(Text.translatable("sabotage.kill_message", plr.getName(), plrs.size()).formatted(Formatting.YELLOW));
+            plrs.sendMessage(Text.translatable("sabotage.kill_message", plr.getName(), getAlivePlayers().size()).formatted(Formatting.YELLOW));
         }
         return ActionResult.FAIL;
     }
@@ -640,6 +640,9 @@ public class SabotageActive {
                         plrs.playSound(SoundEvents.BLOCK_RESPAWN_ANCHOR_CHARGE);
                         plrs.sendMessage(Text.translatable("sabotage.game_start", config.gracePeriod()).formatted(Formatting.YELLOW));
                     } else {
+                        for (ServerPlayerEntity plr : plrs) {
+                            plr.setStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, 40, 0, false, false), plr);
+                        }
                         plrs.showTitle(Text.literal(Integer.toString(countdownTime - secondsSinceStart)).formatted(Formatting.GOLD), 20);
                         plrs.playSound(SoundEvents.BLOCK_NOTE_BLOCK_HARP.value(), SoundCategory.PLAYERS, 1.0F, 2.0F);
                     }
