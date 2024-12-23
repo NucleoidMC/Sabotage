@@ -36,7 +36,7 @@ import static java.util.Map.entry;
 import static me.ellieis.Sabotage.game.custom.SabotageBlocks.SABOTAGE_CHEST_ENTITY;
 
 public class SabotageChest extends ChestBlock implements BlockEntityProvider, PolymerBlock {
-    private final Block virtualBlock;
+    private final Block virtualBlock = Blocks.CHEST;
     private static final Map<Item, Integer> items = Map.ofEntries(
             entry(Items.WOODEN_SWORD, 40),
             entry(Items.STONE_SWORD, 15),
@@ -97,10 +97,8 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
         }
         return stack;
     }
-    public SabotageChest(Settings settings, Block virtualBlock) {
+    public SabotageChest(Settings settings) {
         super(() -> SABOTAGE_CHEST_ENTITY, settings);
-
-        this.virtualBlock = virtualBlock;
     }
 
     @Override

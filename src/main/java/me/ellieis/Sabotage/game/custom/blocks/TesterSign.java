@@ -13,12 +13,11 @@ import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 import xyz.nucleoid.packettweaker.PacketContext;
 
-public class TesterSign extends SignBlock implements PolymerBlock, BlockEntityProvider {
-    private final Block virtualBlock;
+public class TesterSign extends SignBlock implements PolymerBlock {
+    private final Block virtualBlock = Blocks.OAK_SIGN;
 
-    public TesterSign(Settings settings, Block virtualBlock) {
+    public TesterSign(Settings settings) {
         super(WoodType.OAK, settings);
-        this.virtualBlock = virtualBlock;
     }
 
     @Override

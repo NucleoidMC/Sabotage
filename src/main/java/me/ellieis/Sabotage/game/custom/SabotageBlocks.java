@@ -14,25 +14,20 @@ import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 
+import java.util.function.Function;
+
 
 public class SabotageBlocks {
-    public static final SabotageChest SABOTAGE_CHEST = new SabotageChest(AbstractBlock.Settings.copy(Blocks.CHEST).dropsNothing().registryKey(RegistryKey.of(RegistryKeys.BLOCK, Sabotage.identifier("sabotage_chest"))), Blocks.CHEST);
-    public static final TesterWool TESTER_WOOL = new TesterWool(AbstractBlock.Settings.copy(Blocks.WHITE_WOOL).dropsNothing().registryKey(RegistryKey.of(RegistryKeys.BLOCK, Sabotage.identifier("tester_wool"))), Blocks.WHITE_WOOL);
-    public static final TesterSign TESTER_SIGN = new TesterSign(AbstractBlock.Settings.copy(Blocks.OAK_SIGN).dropsNothing().registryKey(RegistryKey.of(RegistryKeys.BLOCK, Sabotage.identifier("tester_sign"))), Blocks.OAK_SIGN);
-    public static final WallTesterSign WALL_TESTER_SIGN = new WallTesterSign(AbstractBlock.Settings.copy(Blocks.OAK_WALL_SIGN).registryKey(RegistryKey.of(RegistryKeys.BLOCK, Sabotage.identifier("wall_tester_sign"))), Blocks.OAK_WALL_SIGN);
+    public static final SabotageChest SABOTAGE_CHEST = register("sabotage_chest", SabotageChest::new, AbstractBlock.Settings.copy(Blocks.CHEST).dropsNothing());
+    public static final TesterWool TESTER_WOOL = register("tester_wool", TesterWool::new, AbstractBlock.Settings.copy(Blocks.WHITE_WOOL).dropsNothing());
+    public static final TesterSign TESTER_SIGN = register("tester_sign", TesterSign::new, AbstractBlock.Settings.copy(Blocks.OAK_SIGN).dropsNothing());
+    public static final WallTesterSign WALL_TESTER_SIGN = register("wall_tester_sign", WallTesterSign::new, AbstractBlock.Settings.copy(Blocks.OAK_WALL_SIGN).dropsNothing());
 
-    public static final BlockEntityType<SabotageChestBlockEntity> SABOTAGE_CHEST_ENTITY = FabricBlockEntityTypeBuilder.create(SabotageChestBlockEntity::new, SABOTAGE_CHEST).build();
-    public static void register() {
-        register("sabotage_chest", SABOTAGE_CHEST);
-        register("tester_wool", TESTER_WOOL);
-        register("tester_sign", TESTER_SIGN);
-        register("wall_tester_sign", WALL_TESTER_SIGN);
-        registerBlockEntity("sabotage_chest_block_entity", SABOTAGE_CHEST_ENTITY);
+    public static final BlockEntityType<SabotageChestBlockEntity> SABOTAGE_CHEST_ENTITY = registerBlockEntity("sabotage_chest_block_entity", FabricBlockEntityTypeBuilder.create(SabotageChestBlockEntity::new, SABOTAGE_CHEST).build());
 
-    }
-
-    private static <T extends Block> T register(String id, T block) {
-        return Registry.register(Registries.BLOCK, Sabotage.identifier(id), block);
+    private static <T extends AbstractBlock> T register(String id, Function<AbstractBlock.Settings, T> factory, AbstractBlock.Settings settings) {
+        Block block = (Block) factory.apply(settings.registryKey(RegistryKey.of(RegistryKeys.BLOCK, Sabotage.identifier(id))));
+        return (T) Registry.register(Registries.BLOCK, Sabotage.identifier(id), block);
     }
     private static <T extends BlockEntity> BlockEntityType<T> registerBlockEntity(String id, BlockEntityType<T> type) {
         Registry.register(Registries.BLOCK_ENTITY_TYPE, Sabotage.identifier(id), type);

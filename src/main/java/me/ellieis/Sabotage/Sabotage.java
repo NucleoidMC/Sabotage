@@ -18,7 +18,6 @@ public class Sabotage implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
-		SabotageBlocks.register();
 		SabotageItems.register();
 		GameType.register(Sabotage.identifier("sabotage"), SabotageConfig.CODEC, SabotageWaiting::Open);
 	}

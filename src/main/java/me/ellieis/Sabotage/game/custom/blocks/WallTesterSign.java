@@ -1,10 +1,7 @@
 package me.ellieis.Sabotage.game.custom.blocks;
 
 import eu.pb4.polymer.core.api.block.PolymerBlock;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.WallSignBlock;
-import net.minecraft.block.WoodType;
+import net.minecraft.block.*;
 import net.minecraft.block.entity.SignBlockEntity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -18,11 +15,10 @@ import org.jetbrains.annotations.Nullable;
 import xyz.nucleoid.packettweaker.PacketContext;
 
 public class WallTesterSign extends WallSignBlock implements PolymerBlock {
-    private final Block virtualBlock;
+    private final Block virtualBlock = Blocks.OAK_WALL_SIGN;
 
-    public WallTesterSign(Settings settings, Block virtualBlock) {
+    public WallTesterSign(Settings settings) {
         super(WoodType.OAK, settings);
-        this.virtualBlock = virtualBlock;
     }
 
     @Override
