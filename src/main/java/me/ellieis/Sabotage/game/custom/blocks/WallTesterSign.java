@@ -2,6 +2,7 @@ package me.ellieis.Sabotage.game.custom.blocks;
 
 import eu.pb4.polymer.core.api.block.PolymerBlock;
 import net.minecraft.block.*;
+import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.SignBlockEntity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -15,7 +16,7 @@ import org.jetbrains.annotations.Nullable;
 import xyz.nucleoid.packettweaker.PacketContext;
 
 public class WallTesterSign extends WallSignBlock implements PolymerBlock {
-    private final Block virtualBlock = Blocks.OAK_WALL_SIGN;
+    private final Block virtualBlock = Blocks.OAK_SIGN;
 
     public WallTesterSign(Settings settings) {
         super(WoodType.OAK, settings);
@@ -28,11 +29,13 @@ public class WallTesterSign extends WallSignBlock implements PolymerBlock {
 
     @Override
     public ActionResult onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, BlockHitResult hit) {
-
-        BaseTesterSign.onUse(world, player, pos.subtract(new Vec3i(0, 1, 0)));
+        BaseTesterSign.onUse(world, player, pos);
         return ActionResult.FAIL;
     }
 
+    public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+        return new TesterSignBlockEntity(pos, state);
+    }
     public BlockState getPolymerBlockState(BlockState state, PacketContext context) {
         return this.virtualBlock.getStateWithProperties(state);
     }
