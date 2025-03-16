@@ -36,7 +36,7 @@ public class BaseTesterSign  {
     public static void onPlaced(World world, BlockPos pos) {
         if (!world.isClient()) {
             TesterSignBlockEntity be = (TesterSignBlockEntity) world.getBlockEntity(pos);
-            Text[] text = {Text.literal("Click"), Text.literal("sign"), Text.literal("to"), Text.literal("test")};
+            Text[] text = {Text.literal("Click"), Text.literal("this sign"), Text.literal("to start"), Text.literal("test")};
             be.setText(new SignText(text, text, DyeColor.RED, true), true);
             be.setWaxed(true);
         }
@@ -45,9 +45,9 @@ public class BaseTesterSign  {
     private static NbtCompound createSignTextNbt() {
         NbtCompound main = new NbtCompound();
         NbtList text = new NbtList();
-        text.add(NbtString.of("Click"));
-        text.add(NbtString.of("sign"));
-        text.add(NbtString.of("to"));
+        text.add(NbtString.of("'Click this'"));
+        text.add(NbtString.of("'sign to'"));
+        text.add(NbtString.of("'start the'"));
         text.add(NbtString.of("test"));
         main.put("messages", text);
         main.putString("color", "red");
