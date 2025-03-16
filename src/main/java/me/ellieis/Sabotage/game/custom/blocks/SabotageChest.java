@@ -2,6 +2,7 @@ package me.ellieis.Sabotage.game.custom.blocks;
 
 import com.google.common.util.concurrent.AtomicDouble;
 import eu.pb4.polymer.core.api.block.PolymerBlock;
+import eu.pb4.polymer.core.api.block.PolymerBlockUtils;
 import me.ellieis.Sabotage.Sabotage;
 import me.ellieis.Sabotage.game.GameStates;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
@@ -17,6 +18,7 @@ import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
@@ -140,5 +142,14 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
 
     public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
         return new SabotageChestBlockEntity(pos, state);
+    }
+    @Override
+    public void onPolymerBlockSend(BlockState blockState, BlockPos.Mutable pos, PacketContext.NotNullWithPlayer context) {
+        NbtCompound nbt = new NbtCompound();
+        nbt.putInt("x", pos.getX());
+        nbt.putInt("y", pos.getY());
+        nbt.putInt("z", pos.getZ());
+        nbt.putString("id", "minecraft:chest");
+        context.getPlayer().networkHandler.sendPacket(PolymerBlockUtils.createBlockEntityPacket(pos, BlockEntityType.CHEST, nbt));
     }
 }

@@ -44,4 +44,8 @@ public class TesterSign extends SignBlock implements PolymerBlock {
         // we don't want players to edit this sign, so this is just a noop.
     }
 
+    @Override
+    public void onPolymerBlockSend(BlockState blockState, BlockPos.Mutable pos, PacketContext.NotNullWithPlayer context) {
+        context.getPlayer().networkHandler.sendPacket(BaseTesterSign.getBlockEntityPacket(pos));
+    }
 }
