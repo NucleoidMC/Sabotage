@@ -2,7 +2,6 @@ package me.ellieis.Sabotage.game.custom.blocks;
 
 import me.ellieis.Sabotage.Sabotage;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
-import net.minecraft.block.entity.SignBlockEntity;
 import net.minecraft.block.entity.SignText;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -30,9 +29,10 @@ public class BaseTesterSign  {
 
     public static void onPlaced(World world, BlockPos pos) {
         if (!world.isClient()) {
-            SignBlockEntity be = (SignBlockEntity) world.getBlockEntity(pos);
+            TesterSignBlockEntity be = (TesterSignBlockEntity) world.getBlockEntity(pos);
             Text[] text = {Text.literal("Click this"), Text.literal("sign to"), Text.literal("start the"), Text.literal("test")};
             be.setText(new SignText(text, text, DyeColor.RED, true), true);
+            be.setWaxed(true);
         }
     }
 }

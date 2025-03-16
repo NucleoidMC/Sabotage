@@ -2,6 +2,7 @@ package me.ellieis.Sabotage.game.custom.blocks;
 
 import eu.pb4.polymer.core.api.block.PolymerBlock;
 import net.minecraft.block.*;
+import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.SignBlockEntity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -31,6 +32,9 @@ public class TesterSign extends SignBlock implements PolymerBlock {
         return ActionResult.FAIL;
     }
 
+    public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+        return new TesterSignBlockEntity(pos, state);
+    }
     public BlockState getPolymerBlockState(BlockState state, PacketContext context) {
         return this.virtualBlock.getStateWithProperties(state);
     }

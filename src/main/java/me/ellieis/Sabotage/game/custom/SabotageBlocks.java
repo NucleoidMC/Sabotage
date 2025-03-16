@@ -23,6 +23,7 @@ public class SabotageBlocks {
     public static final TesterSign TESTER_SIGN = register("tester_sign", TesterSign::new, AbstractBlock.Settings.copy(Blocks.OAK_SIGN).dropsNothing());
     public static final WallTesterSign WALL_TESTER_SIGN = register("wall_tester_sign", WallTesterSign::new, AbstractBlock.Settings.copy(Blocks.OAK_WALL_SIGN).dropsNothing());
 
+    public static final BlockEntityType<TesterSignBlockEntity> TESTER_SIGN_ENTITY = registerBlockEntity("tester_sign_block_entity", FabricBlockEntityTypeBuilder.create(TesterSignBlockEntity::new, TESTER_SIGN).build());
     public static final BlockEntityType<SabotageChestBlockEntity> SABOTAGE_CHEST_ENTITY = registerBlockEntity("sabotage_chest_block_entity", FabricBlockEntityTypeBuilder.create(SabotageChestBlockEntity::new, SABOTAGE_CHEST).build());
 
     private static <T extends AbstractBlock> T register(String id, Function<AbstractBlock.Settings, T> factory, AbstractBlock.Settings settings) {
@@ -31,7 +32,8 @@ public class SabotageBlocks {
     }
     private static <T extends BlockEntity> BlockEntityType<T> registerBlockEntity(String id, BlockEntityType<T> type) {
         Registry.register(Registries.BLOCK_ENTITY_TYPE, Sabotage.identifier(id), type);
-        PolymerBlockUtils.registerBlockEntity(SABOTAGE_CHEST_ENTITY);
+        PolymerBlockUtils.registerBlockEntity(type);
         return type;
     }
+    public static void register() {}
 }
