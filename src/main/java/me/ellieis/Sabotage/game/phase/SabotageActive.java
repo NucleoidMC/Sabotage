@@ -6,6 +6,7 @@ import me.ellieis.Sabotage.Sabotage;
 import me.ellieis.Sabotage.game.EndReason;
 import me.ellieis.Sabotage.game.GameStates;
 import me.ellieis.Sabotage.game.Roles;
+import me.ellieis.Sabotage.game.TeamManager;
 import me.ellieis.Sabotage.game.config.DetectiveConfig;
 import me.ellieis.Sabotage.game.config.InnocentConfig;
 import me.ellieis.Sabotage.game.config.SabotageConfig;
@@ -69,10 +70,10 @@ public class SabotageActive {
     public final GameSpace gameSpace;
     private final SabotageMap map;
     private final ServerWorld world;
-    private final MutablePlayerSet saboteurs;
-    private final MutablePlayerSet detectives;
-    private final MutablePlayerSet innocents;
-    private final MutablePlayerSet dead;
+    public final MutablePlayerSet saboteurs;
+    public final MutablePlayerSet detectives;
+    public final MutablePlayerSet innocents;
+    public final MutablePlayerSet dead;
     // used in the game end message to list all saboteurs
     private PlayerSet initialSaboteurs;
     public final GameStatisticBundle stats;
@@ -88,8 +89,8 @@ public class SabotageActive {
     private SidebarWidget innocentSidebar;
     private SidebarWidget detectiveSidebar;
     private SidebarWidget saboteurSidebar;
-
-    public SabotageActive(SabotageConfig config, GameSpace gameSpace, SabotageMap map, ServerWorld world) {
+    private TeamManager teamManager;
+    public SabotageActive(SabotageConfig config, GameSpace gameSpace, SabotageMap map, ServerWorld world, GameActivity activity) {
         this.config = config;
         this.gameSpace = gameSpace;
         this.map = map;
@@ -100,8 +101,10 @@ public class SabotageActive {
         this.innocents = new MutablePlayerSet(gameSpace.getServer());
         this.dead = new MutablePlayerSet(gameSpace.getServer());
         this.stats = gameSpace.getStatistics().bundle(MOD_ID);
+        this.activity = activity;
         this.karmaManager = new KarmaManager(stats);
         this.taskScheduler = new TaskScheduler(gameSpace, world);
+        this.teamManager = new TeamManager(gameSpace, activity, this);
         Sabotage.activeGames.add(this);
     }
 
@@ -255,6 +258,12 @@ public class SabotageActive {
         saboteurs.playSound(SoundEvents.ENTITY_ILLUSIONER_CAST_SPELL);
         saboteurs.playSound(SoundEvents.AMBIENT_SOUL_SAND_VALLEY_MOOD.value());
 
+        // role colors
+        for (ServerPlayerEntity player: plrs) {
+            for (ServerPlayerEntity plr: plrs) {
+                player.networkHandler.sendPacket(this.teamManager.updatePlayerName(plr, getPlayerRole(player) == Roles.SABOTEUR));
+            }
+        }
         // give detectives their portable tester
         for (ServerPlayerEntity detective : detectives) {
             detective.getInventory().insertStack(new ItemStack(DETECTIVE_SHEARS));
@@ -276,7 +285,7 @@ public class SabotageActive {
 
     public static Formatting getRoleColor(Roles role) {
         return (role == Roles.INNOCENT) ? Formatting.GREEN :
-                (role == Roles.DETECTIVE) ? Formatting.DARK_BLUE :
+                (role == Roles.DETECTIVE) ? Formatting.BLUE :
                         (role == Roles.SABOTEUR) ? Formatting.RED : Formatting.RESET;
     }
 
@@ -456,9 +465,8 @@ public class SabotageActive {
     }
     public static void Open(GameSpace gameSpace, ServerWorld world, SabotageMap map, SabotageConfig config) {
         gameSpace.setActivity(activity -> {
-            SabotageActive game = new SabotageActive(config, gameSpace, map, world);
+            SabotageActive game = new SabotageActive(config, gameSpace, map, world, activity);
             game.startTime = world.getTime();
-            game.activity = activity;
             game.widgets = GlobalWidgets.addTo(activity);
             game.globalSidebar = game.widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
             game.globalSidebar.setPriority(Sidebar.Priority.LOW);
@@ -492,6 +500,11 @@ public class SabotageActive {
         if (gameState == GameStates.ACTIVE) {
             if (plr.isSpectator()) {
                 dead.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.GRAY).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+            } else if (detectives.contains(plr)) {
+                detectives.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.BLUE).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+                innocents.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.BLUE).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+                saboteurs.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(getRoleColor(getPlayerRole(plr))).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+                dead.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.BLUE).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
             } else {
                 detectives.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
                 innocents.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
@@ -504,7 +517,6 @@ public class SabotageActive {
         }
         return false;
     }
-
     private EventResult onDeath(ServerPlayerEntity plr, DamageSource damageSource) {
         // remove player from team
         Entity entityAttacker = damageSource.getAttacker();
