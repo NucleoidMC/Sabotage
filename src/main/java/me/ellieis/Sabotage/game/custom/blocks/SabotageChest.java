@@ -3,6 +3,7 @@ package me.ellieis.Sabotage.game.custom.blocks;
 import com.google.common.util.concurrent.AtomicDouble;
 import eu.pb4.polymer.core.api.block.PolymerBlock;
 import eu.pb4.polymer.core.api.block.PolymerBlockUtils;
+import it.unimi.dsi.fastutil.ints.IntList;
 import me.ellieis.Sabotage.Sabotage;
 import me.ellieis.Sabotage.game.GameStates;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
@@ -12,6 +13,9 @@ import net.minecraft.block.*;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.block.entity.ChestBlockEntity;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.FireworkExplosionComponent;
+import net.minecraft.component.type.FireworksComponent;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
@@ -25,12 +29,14 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.ActionResult;
+import net.minecraft.util.DyeColor;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import xyz.nucleoid.packettweaker.PacketContext;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -92,6 +98,13 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
     private static ItemStack getItemDrop() {
         Item item = getFromWeightedMap(items);
         ItemStack stack = new ItemStack(item);
+        if (item == Items.FIREWORK_ROCKET) {
+            IntList colors = IntList.of(DyeColor.ORANGE.getFireworkColor());
+            FireworkExplosionComponent explode = new FireworkExplosionComponent(FireworkExplosionComponent.Type.BURST, colors, IntList.of(), false, false);
+            FireworksComponent fireworkComponent = new FireworksComponent(0, List.of(explode));
+            stack.set(DataComponentTypes.FIREWORKS, fireworkComponent);
+        }
+
         if (durabilities.get(item) != null) {
             int range = durabilities.get(item);
             int durability = (int) Math.floor(Math.random() * range);

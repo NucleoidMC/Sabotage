@@ -45,9 +45,9 @@ public class BaseTesterSign  {
     private static NbtCompound createSignTextNbt() {
         NbtCompound main = new NbtCompound();
         NbtList text = new NbtList();
-        text.add(NbtString.of("'Click this'"));
-        text.add(NbtString.of("'sign to'"));
-        text.add(NbtString.of("'start the'"));
+        text.add(NbtString.of("Click this"));
+        text.add(NbtString.of("sign to"));
+        text.add(NbtString.of("start the"));
         text.add(NbtString.of("test"));
         main.put("messages", text);
         main.putString("color", "red");
