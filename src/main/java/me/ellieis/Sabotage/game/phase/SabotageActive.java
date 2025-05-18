@@ -28,6 +28,7 @@ import net.minecraft.network.message.MessageType;
 import net.minecraft.network.message.SentMessage;
 import net.minecraft.network.message.SignedMessage;
 import net.minecraft.network.packet.s2c.play.PositionFlag;
+import net.minecraft.network.packet.s2c.play.TeamS2CPacket;
 import net.minecraft.scoreboard.number.BlankNumberFormat;
 import net.minecraft.screen.ScreenTexts;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -42,6 +43,7 @@ import net.minecraft.world.GameMode;
 import xyz.nucleoid.plasmid.api.game.GameActivity;
 import xyz.nucleoid.plasmid.api.game.GameCloseReason;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
+import xyz.nucleoid.plasmid.api.game.GameSpacePlayers;
 import xyz.nucleoid.plasmid.api.game.common.GlobalWidgets;
 import xyz.nucleoid.plasmid.api.game.common.widget.SidebarWidget;
 import xyz.nucleoid.plasmid.api.game.event.GameActivityEvents;
@@ -82,14 +84,14 @@ public class SabotageActive {
     private boolean isTesterOnCooldown = false;
     private long startTime;
     private long endTime;
-    private GameActivity activity;
+    private final GameActivity activity;
     public GameStates gameState = GameStates.COUNTDOWN;
     private GlobalWidgets widgets;
     private SidebarWidget globalSidebar;
     private SidebarWidget innocentSidebar;
     private SidebarWidget detectiveSidebar;
     private SidebarWidget saboteurSidebar;
-    private TeamManager teamManager;
+    private final TeamManager teamManager;
     public SabotageActive(SabotageConfig config, GameSpace gameSpace, SabotageMap map, ServerWorld world, GameActivity activity) {
         this.config = config;
         this.gameSpace = gameSpace;
@@ -149,7 +151,7 @@ public class SabotageActive {
         return result;
     }
 
-    private PlayerSet getAlivePlayers() {
+    public PlayerSet getAlivePlayers() {
         MutablePlayerSet plrs = gameSpace.getPlayers().copy(gameSpace.getServer());
         plrs.forEach(plr -> {
             if (plr.isSpectator() || dead.contains(plr)) {
@@ -180,7 +182,7 @@ public class SabotageActive {
         // detectives
         detectiveSidebar.set(content -> {
             content.add(ScreenTexts.EMPTY);
-            content.add(Text.translatable("sabotage.sidebar.role", Text.translatable("sabotage.detective").formatted(Formatting.DARK_BLUE)));
+            content.add(Text.translatable("sabotage.sidebar.role", Text.translatable("sabotage.detective").formatted(Formatting.BLUE)));
             content.add(Text.translatable("sabotage.sidebar.role.desc", Text.translatable("sabotage.saboteurs").formatted(Formatting.RED)));
             content.add(ScreenTexts.EMPTY);
             content.add(Text.translatable("sabotage.sidebar.time_left", minutes, seconds));
@@ -252,7 +254,7 @@ public class SabotageActive {
         initialSaboteurs = saboteurs.copy(gameSpace.getServer());
         innocents.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.innocent").formatted(Formatting.GREEN)), 10, 80, 10);
         innocents.playSound(SoundEvents.ENTITY_ILLUSIONER_CAST_SPELL);
-        detectives.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.detective").formatted(Formatting.DARK_BLUE)), 10, 80, 10);
+        detectives.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.detective").formatted(Formatting.BLUE)), 10, 80, 10);
         detectives.playSound(SoundEvents.BLOCK_AMETHYST_BLOCK_CHIME);
         saboteurs.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.saboteur").formatted(Formatting.RED)), 10, 80, 10);
         saboteurs.playSound(SoundEvents.ENTITY_ILLUSIONER_CAST_SPELL);
@@ -264,6 +266,7 @@ public class SabotageActive {
                 player.networkHandler.sendPacket(this.teamManager.updatePlayerName(plr, getPlayerRole(player) == Roles.SABOTEUR));
             }
         }
+        teamManager.setPlayerTeams();
         // give detectives their portable tester
         for (ServerPlayerEntity detective : detectives) {
             detective.getInventory().insertStack(new ItemStack(DETECTIVE_SHEARS));
@@ -449,7 +452,7 @@ public class SabotageActive {
             plrs.sendMessage(Text.translatable(
                     "sabotage.game_end.innocents",
                     Text.translatable("sabotage.innocents").formatted(Formatting.GREEN),
-                    Text.translatable("sabotage.detectives").formatted(Formatting.DARK_BLUE),
+                    Text.translatable("sabotage.detectives").formatted(Formatting.BLUE),
                     Text.translatable("sabotage.saboteurs").formatted(Formatting.RED)
             ));
         } else if (endReason == EndReason.SABOTEUR_WIN) {
@@ -524,10 +527,21 @@ public class SabotageActive {
         plr.changeGameMode(GameMode.SPECTATOR);
         plr.playSound(SoundEvents.ENTITY_COW_DEATH, 1, 0.7f);
         dead.add(plr);
+        GameSpacePlayers plrSet = gameSpace.getPlayers();
+        plrSet.forEach((otherPlr) -> teamManager.playerTeamPacket(teamManager.dead, otherPlr, plr, TeamS2CPacket.Operation.ADD));
+        if (plrRole == Roles.SABOTEUR) {
+            plrSet.forEach((otherPlr) -> {
+                Roles role = getPlayerRole(otherPlr);
+                teamManager.playerTeamPacket((role == Roles.DETECTIVE) ?
+                        teamManager.det : (role == Roles.NONE) ?
+                        teamManager.dead : teamManager.unknown,
+                        plr, otherPlr, TeamS2CPacket.Operation.ADD);
+            });
+        }
+
         if (gameState != GameStates.ACTIVE) {
             return EventResult.DENY;
         }
-
 
         if (entityAttacker instanceof ServerPlayerEntity attacker) {
             Roles attackerRole = getPlayerRole(attacker);
