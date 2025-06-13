@@ -11,19 +11,23 @@ import me.ellieis.Sabotage.game.config.DetectiveConfig;
 import me.ellieis.Sabotage.game.config.InnocentConfig;
 import me.ellieis.Sabotage.game.config.SabotageConfig;
 import me.ellieis.Sabotage.game.config.SaboteurConfig;
+import me.ellieis.Sabotage.game.custom.blocks.TesterSign;
+import me.ellieis.Sabotage.game.custom.blocks.WallTesterSign;
 import me.ellieis.Sabotage.game.map.SabotageMap;
 import me.ellieis.Sabotage.game.statistics.KarmaManager;
 import me.ellieis.Sabotage.game.utils.Task;
 import me.ellieis.Sabotage.game.utils.TaskScheduler;
 import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.TntEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.PlayerPosition;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.network.message.MessageType;
 import net.minecraft.network.message.SentMessage;
 import net.minecraft.network.message.SignedMessage;
@@ -36,10 +40,15 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
+import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
+import net.minecraft.util.Hand;
+import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
+import net.minecraft.world.World;
+import net.minecraft.world.explosion.Explosion;
 import xyz.nucleoid.plasmid.api.game.GameActivity;
 import xyz.nucleoid.plasmid.api.game.GameCloseReason;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
@@ -54,17 +63,17 @@ import xyz.nucleoid.plasmid.api.game.stats.GameStatisticBundle;
 import xyz.nucleoid.plasmid.api.util.PlayerRef;
 import xyz.nucleoid.stimuli.event.EventResult;
 import xyz.nucleoid.stimuli.event.block.BlockRandomTickEvent;
+import xyz.nucleoid.stimuli.event.block.BlockUseEvent;
 import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
 import xyz.nucleoid.stimuli.event.player.ReplacePlayerChatEvent;
+import xyz.nucleoid.stimuli.event.world.ExplosionDetonatedEvent;
 
-import java.util.ArrayList;
-import java.util.Collections;
+
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 
 import static me.ellieis.Sabotage.Sabotage.MOD_ID;
-import static me.ellieis.Sabotage.game.custom.SabotageItems.DETECTIVE_SHEARS;
 
 public class SabotageActive {
 
@@ -72,10 +81,6 @@ public class SabotageActive {
     public final GameSpace gameSpace;
     private final SabotageMap map;
     private final ServerWorld world;
-    public final MutablePlayerSet saboteurs;
-    public final MutablePlayerSet detectives;
-    public final MutablePlayerSet innocents;
-    public final MutablePlayerSet dead;
     // used in the game end message to list all saboteurs
     private PlayerSet initialSaboteurs;
     public final GameStatisticBundle stats;
@@ -98,10 +103,7 @@ public class SabotageActive {
         this.map = map;
         this.world = world;
 
-        this.saboteurs = new MutablePlayerSet(gameSpace.getServer());
-        this.detectives = new MutablePlayerSet(gameSpace.getServer());
-        this.innocents = new MutablePlayerSet(gameSpace.getServer());
-        this.dead = new MutablePlayerSet(gameSpace.getServer());
+
         this.stats = gameSpace.getStatistics().bundle(MOD_ID);
         this.activity = activity;
         this.karmaManager = new KarmaManager(stats);
@@ -154,12 +156,13 @@ public class SabotageActive {
     public PlayerSet getAlivePlayers() {
         MutablePlayerSet plrs = gameSpace.getPlayers().copy(gameSpace.getServer());
         plrs.forEach(plr -> {
-            if (plr.isSpectator() || dead.contains(plr)) {
+            if (plr.isSpectator() || teamManager.dead.contains(plr)) {
                 plrs.remove(plr);
             }
         });
         return plrs;
     }
+
     public void updateSidebars() {
         long timeLeft = (long) Math.abs(Math.floor((world.getTime() / 20) - (startTime / 20)) - config.countdownTime() - config.gracePeriod() - config.timeLimit());
         long minutes = timeLeft / 60;
@@ -227,83 +230,23 @@ public class SabotageActive {
         detectiveSidebar.setDefaultNumberFormat(BlankNumberFormat.INSTANCE);
         saboteurSidebar.setDefaultNumberFormat(BlankNumberFormat.INSTANCE);
 
-        saboteurs.forEach(plr -> saboteurSidebar.addPlayer(plr));
-        detectives.forEach(plr -> detectiveSidebar.addPlayer(plr));
-        innocents.forEach(plr -> innocentSidebar.addPlayer(plr));
-    }
-
-    public void pickRoles() {
-        PlayerSet plrs = getAlivePlayers();
-        int playerCount = plrs.size();
-        // need to make a new list from .toList to make it mutable
-        List<ServerPlayerEntity> plrList = new ArrayList<>(plrs.stream().toList());
-        Collections.shuffle(plrList);
-        int sabCount = Math.max(playerCount / 3, 1);
-        int detCount = playerCount / 8;
-        for (ServerPlayerEntity plr : plrList) {
-            if (detCount >= 1) {
-                detectives.add(plr);
-                detCount--;
-            } else if (sabCount >= 1) {
-                saboteurs.add(plr);
-                sabCount--;
-            } else {
-                innocents.add(plr);
-            }
-        }
-        initialSaboteurs = saboteurs.copy(gameSpace.getServer());
-        innocents.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.innocent").formatted(Formatting.GREEN)), 10, 80, 10);
-        innocents.playSound(SoundEvents.ENTITY_ILLUSIONER_CAST_SPELL);
-        detectives.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.detective").formatted(Formatting.BLUE)), 10, 80, 10);
-        detectives.playSound(SoundEvents.BLOCK_AMETHYST_BLOCK_CHIME);
-        saboteurs.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.saboteur").formatted(Formatting.RED)), 10, 80, 10);
-        saboteurs.playSound(SoundEvents.ENTITY_ILLUSIONER_CAST_SPELL);
-        saboteurs.playSound(SoundEvents.AMBIENT_SOUL_SAND_VALLEY_MOOD.value());
-
-        // role colors
-        for (ServerPlayerEntity player: plrs) {
-            for (ServerPlayerEntity plr: plrs) {
-                player.networkHandler.sendPacket(this.teamManager.updatePlayerName(plr, getPlayerRole(player) == Roles.SABOTEUR));
-            }
-        }
-        teamManager.setPlayerTeams();
-        // give detectives their portable tester
-        for (ServerPlayerEntity detective : detectives) {
-            detective.getInventory().insertStack(new ItemStack(DETECTIVE_SHEARS));
-        }
-
-        setSidebars();
-    }
-
-    public Roles getPlayerRole(ServerPlayerEntity plr) {
-        if (innocents.contains(plr)) {
-            return Roles.INNOCENT;
-        } else if (detectives.contains(plr)) {
-            return Roles.DETECTIVE;
-        } else if (saboteurs.contains(plr)) {
-            return Roles.SABOTEUR;
-        }
-        return Roles.NONE;
-    }
-
-    public static Formatting getRoleColor(Roles role) {
-        return (role == Roles.INNOCENT) ? Formatting.GREEN :
-                (role == Roles.DETECTIVE) ? Formatting.BLUE :
-                        (role == Roles.SABOTEUR) ? Formatting.RED : Formatting.RESET;
+        teamManager.saboteurs.forEach(plr -> saboteurSidebar.addPlayer(plr));
+        teamManager.detectives.forEach(plr -> detectiveSidebar.addPlayer(plr));
+        teamManager.innocents.forEach(plr -> innocentSidebar.addPlayer(plr));
     }
 
     private Text createAttackerKillMessage(ServerPlayerEntity plr, int karma) {
-        Roles role = getPlayerRole(plr);
-        Formatting victimColor = getRoleColor(role);
+        Roles role = teamManager.getPlayerRole(plr);
+        Formatting victimColor = TeamManager.getRoleColor(role);
         return Text.translatable(
                 "sabotage.kill_message_attacker",
                 plr.getName().copy().formatted(victimColor),
                 Text.literal("(" + karma + " karma)").formatted((karma >= 0) ? Formatting.GREEN : Formatting.RED)).formatted(Formatting.YELLOW);
     }
     public EndReason checkWinCondition() {
-        if (saboteurs.isEmpty()) {
+        if (teamManager.saboteurs.isEmpty()) {
             return EndReason.INNOCENT_WIN;
-        } else if (innocents.isEmpty() && detectives.isEmpty()) {
+        } else if (teamManager.innocents.isEmpty() && teamManager.detectives.isEmpty()) {
             return EndReason.SABOTEUR_WIN;
         }
         return EndReason.NONE;
@@ -332,7 +275,7 @@ public class SabotageActive {
             // either player is already testing or being tested, abort
             return;
         }
-        Roles role = getPlayerRole(plr);
+        Roles role = teamManager.getPlayerRole(plr);
         if (role == Roles.DETECTIVE) {
             if (entity.isPlayer()) {
                 final ServerPlayerEntity playerEntity = (ServerPlayerEntity) entity;
@@ -342,14 +285,14 @@ public class SabotageActive {
                 playerEntity.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 200));
                 int revealTime = (int) world.getTime() + 200;
                 Consumer<GameSpace> func = (gameSpace) -> {
-                    Roles plrRole = getPlayerRole(playerEntity);
+                    Roles plrRole = teamManager.getPlayerRole(playerEntity);
                     gameSpace.getPlayers().sendMessage(
                             Text.translatable("sabotage.detective_shears_reveal",
                                     playerEntity.getName(),
                                     Text.translatable("sabotage." + (
                                             (plrRole == Roles.SABOTEUR) ? "saboteur" :
                                                     (plrRole == Roles.DETECTIVE) ? "detective" : "innocent")
-                                    ).formatted(getRoleColor(plrRole))));
+                                    ).formatted(TeamManager.getRoleColor(plrRole))));
                 };
                 taskScheduler.addTask(new Task(revealTime, func));
             }
@@ -377,7 +320,7 @@ public class SabotageActive {
                 gameSpace.getPlayers().sendMessage(Text.translatable("sabotage.tester.message", plr.getName(), 5).formatted(Formatting.YELLOW));
             };
             Consumer<GameSpace> reveal = (gameSpace) -> {
-                Roles plrRole = getPlayerRole(plr);
+                Roles plrRole = teamManager.getPlayerRole(plr);
                 // isTesterOnCooldown is changed in this method
                 changeTesterWool(plrRole);
                 for (BlockPos blockPos : map.getTesterCloseRegion().getBounds()) {
@@ -431,7 +374,7 @@ public class SabotageActive {
 
     public void Start() {
         gameState = GameStates.ACTIVE;
-        pickRoles();
+        teamManager.pickRoles();
         gameStartedRules(activity);
         getAlivePlayers().forEach(plr -> {
             karmaManager.setKarma(plr, 20);
@@ -483,7 +426,9 @@ public class SabotageActive {
             activity.listen(GamePlayerEvents.OFFER, JoinOffer::accept);
             activity.listen(GamePlayerEvents.ACCEPT, game::onAccept);
             activity.listen(GameActivityEvents.DESTROY, game::onDestroy);
+            activity.listen(BlockUseEvent.EVENT, game::onBlockUse);
             activity.listen(BlockRandomTickEvent.EVENT, (_block, _pos, _state) -> EventResult.DENY);
+            activity.listen(ExplosionDetonatedEvent.EVENT, game::onExplosion);
             map.setWorld(world);
             map.generateChests();
             PlayerSet plrs = game.gameSpace.getPlayers();
@@ -499,20 +444,80 @@ public class SabotageActive {
         });
     }
 
+    private ActionResult onBlockUse(ServerPlayerEntity player, Hand hand, BlockHitResult blockHitResult) {
+        ItemStack item = player.getStackInHand(hand);
+        // TNT ignites on place
+        if (item.isOf(Items.TNT)) {
+            BlockPos pos = blockHitResult.getBlockPos().offset(blockHitResult.getSide());;
+            World world = player.getWorld();
+            if (world.getBlockState(pos).getBlock() == Blocks.AIR) {
+                world.spawnEntity(new TntEntity(world, pos.getX(), pos.getY(), pos.getZ(), player));
+                item.decrement(1);
+                world.playSound(null, pos, SoundEvents.ENTITY_TNT_PRIMED, SoundCategory.BLOCKS);
+                return ActionResult.CONSUME;
+            }
+        }
+
+        return ActionResult.PASS;
+    }
+
+
+    private EventResult onExplosion(Explosion explosion, List<BlockPos> explodedBlocks) {
+        int i = 0;
+        for (BlockPos blockPos : explodedBlocks) {
+            i++;
+            Block block = explosion.getWorld().getBlockState(blockPos).getBlock();
+            if (block instanceof TesterSign || block instanceof WallTesterSign) {
+                LivingEntity entity = explosion.getCausingEntity();
+                world.playSound(explosion.getEntity(),
+                        blockPos,
+                        SoundEvents.BLOCK_ANVIL_DESTROY,
+                        SoundCategory.BLOCKS,
+                        1.5f,
+                        0.85f);
+                if (entity != null && entity.isPlayer()) {
+                    ServerPlayerEntity player = (ServerPlayerEntity) entity;
+                    Roles playerRole = teamManager.getPlayerRole(player);
+                    int karma;
+                    if (playerRole == Roles.SABOTEUR) {
+                        karma = config.saboteurConfig().detectiveKarmaAward();
+                        karmaManager.incrementKarma(player, karma);
+                    } else if (playerRole != Roles.NONE) {
+                        karma = -config.innocentConfig().detectiveKarmaPenalty();
+                        karmaManager.decrementKarma(player, -karma);
+                    } else {
+                        karma = 0;
+                    }
+                    player.sendMessage(Text.translatable("sabotage.tester.blew_up", Text.literal("(" + karma + " karma)").formatted((karma >= 0) ? Formatting.GREEN : Formatting.RED)));
+
+                }
+            } else {
+                final BlockPos blockPos1 = blockPos;
+                final BlockState blockState = world.getBlockState(blockPos);
+                taskScheduler.addTask(new Task((int) world.getTime() + (((100 + (int) (Math.random() *  200)) + (20 * i))),
+                        (_gameSpace) -> {
+                            world.setBlockState(blockPos1, blockState);
+                        }
+                        ));
+            }
+        }
+        return EventResult.ALLOW;
+    }
+
     private boolean onChat(ServerPlayerEntity plr, SignedMessage signedMessage, MessageType.Parameters parameters) {
         if (gameState == GameStates.ACTIVE) {
             if (plr.isSpectator()) {
-                dead.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.GRAY).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
-            } else if (detectives.contains(plr)) {
-                detectives.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.BLUE).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
-                innocents.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.BLUE).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
-                saboteurs.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(getRoleColor(getPlayerRole(plr))).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
-                dead.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.BLUE).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+                teamManager.dead.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.GRAY).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+            } else if (teamManager.detectives.contains(plr)) {
+                teamManager.detectives.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.BLUE).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+                teamManager.innocents.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.BLUE).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+                teamManager.saboteurs.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(TeamManager.getRoleColor(teamManager.getPlayerRole(plr))).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+                teamManager.dead.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.BLUE).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
             } else {
-                detectives.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
-                innocents.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
-                saboteurs.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(getRoleColor(getPlayerRole(plr))).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
-                dead.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+                teamManager.detectives.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+                teamManager.innocents.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+                teamManager.saboteurs.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(TeamManager.getRoleColor(teamManager.getPlayerRole(plr))).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+                teamManager.dead.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
             }
             // I have no idea what this is (or what it does), docs said to use it so I'm using it
             SentMessage.of(signedMessage);
@@ -523,18 +528,18 @@ public class SabotageActive {
     private EventResult onDeath(ServerPlayerEntity plr, DamageSource damageSource) {
         // remove player from team
         Entity entityAttacker = damageSource.getAttacker();
-        Roles plrRole = getPlayerRole(plr);
+        Roles plrRole = teamManager.getPlayerRole(plr);
         plr.changeGameMode(GameMode.SPECTATOR);
         plr.playSound(SoundEvents.ENTITY_COW_DEATH, 1, 0.7f);
-        dead.add(plr);
+        teamManager.dead.add(plr);
         GameSpacePlayers plrSet = gameSpace.getPlayers();
-        plrSet.forEach((otherPlr) -> teamManager.playerTeamPacket(teamManager.dead, otherPlr, plr, TeamS2CPacket.Operation.ADD));
+        plrSet.forEach((otherPlr) -> teamManager.playerTeamPacket(teamManager.deadTeam, otherPlr, plr, TeamS2CPacket.Operation.ADD));
         if (plrRole == Roles.SABOTEUR) {
             plrSet.forEach((otherPlr) -> {
-                Roles role = getPlayerRole(otherPlr);
+                Roles role = teamManager.getPlayerRole(otherPlr);
                 teamManager.playerTeamPacket((role == Roles.DETECTIVE) ?
                         teamManager.det : (role == Roles.NONE) ?
-                        teamManager.dead : teamManager.unknown,
+                        teamManager.deadTeam : teamManager.unknown,
                         plr, otherPlr, TeamS2CPacket.Operation.ADD);
             });
         }
@@ -544,7 +549,7 @@ public class SabotageActive {
         }
 
         if (entityAttacker instanceof ServerPlayerEntity attacker) {
-            Roles attackerRole = getPlayerRole(attacker);
+            Roles attackerRole = teamManager.getPlayerRole(attacker);
             // surely there's a better way to do this..
             switch(attackerRole) {
                 case SABOTEUR -> {
@@ -584,13 +589,13 @@ public class SabotageActive {
         }
 
         if (plrRole == Roles.SABOTEUR) {
-            saboteurs.remove(plr);
+            teamManager.saboteurs.remove(plr);
             saboteurSidebar.removePlayer(plr);
         } else if (plrRole == Roles.DETECTIVE) {
-            detectives.remove(plr);
+            teamManager.detectives.remove(plr);
             detectiveSidebar.removePlayer(plr);
         } else if (plrRole == Roles.INNOCENT) {
-            innocents.remove(plr);
+            teamManager.innocents.remove(plr);
             innocentSidebar.removePlayer(plr);
         }
 
@@ -613,7 +618,7 @@ public class SabotageActive {
             // player joined after game start, so they're technically dead
             plr.changeGameMode(GameMode.SPECTATOR);
             globalSidebar.addPlayer(plr);
-            dead.add(plr);
+            teamManager.dead.add(plr);
         });
     }
 
@@ -622,18 +627,18 @@ public class SabotageActive {
     }
 
     private void onPlayerRemove(ServerPlayerEntity plr) {
-        Roles role = getPlayerRole(plr);
+        Roles role = teamManager.getPlayerRole(plr);
         if (role == Roles.SABOTEUR) {
-            saboteurs.remove(plr);
+            teamManager.saboteurs.remove(plr);
             saboteurSidebar.removePlayer(plr);
         } else if (role == Roles.DETECTIVE) {
-            detectives.remove(plr);
+            teamManager.detectives.remove(plr);
             detectiveSidebar.removePlayer(plr);
         } else if (role == Roles.INNOCENT) {
-            innocents.remove(plr);
+            teamManager.innocents.remove(plr);
             innocentSidebar.removePlayer(plr);
         } else {
-            dead.remove(plr);
+            teamManager.dead.remove(plr);
         }
         globalSidebar.removePlayer(plr);
         // get around alive check by doing this

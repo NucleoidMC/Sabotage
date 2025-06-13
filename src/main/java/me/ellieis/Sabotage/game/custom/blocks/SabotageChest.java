@@ -53,6 +53,8 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
             entry(Items.GOLDEN_AXE, 1),
             entry(Items.LEATHER_BOOTS, 20),
             entry(Items.LEATHER_HELMET, 20),
+            entry(Items.FIREWORK_ROCKET, 10),
+            entry(Items.ARROW, 20),
             entry(Items.LEATHER_LEGGINGS, 12),
             entry(Items.LEATHER_CHESTPLATE, 10),
             entry(Items.CHAINMAIL_BOOTS, 8),
@@ -61,14 +63,13 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
             entry(Items.CHAINMAIL_CHESTPLATE, 3),
             entry(Items.IRON_HELMET, 5),
             entry(Items.IRON_BOOTS, 5),
-            entry(Items.IRON_LEGGINGS, 3),
-            entry(Items.IRON_CHESTPLATE, 1),
-            entry(Items.GOLDEN_APPLE, 1),
             entry(Items.BOW, 4),
             entry(Items.CROSSBOW, 4),
-            // to-do: make firework explosive
-            entry(Items.FIREWORK_ROCKET, 10),
-            entry(Items.ARROW, 20)
+            entry(Items.IRON_LEGGINGS, 3),
+            entry(Items.TNT, 3),
+            entry(Items.IRON_CHESTPLATE, 1),
+            entry(Items.GOLDEN_APPLE, 1)
+
     );
     private static final Map<Item, Integer> durabilities = Map.ofEntries(
             entry(Items.GOLDEN_AXE, 5),

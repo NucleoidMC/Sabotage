@@ -30,6 +30,7 @@
   "sabotage.sidebar.role.desc": "Find and kill all %s",
   "sabotage.sidebar.time_left": "Time left: %02d:%02d",
 
+  "sabotage.tester.blew_up": "You blew up the tester. %s",
   "sabotage.tester.message": "%s is being tested. Check back in %s seconds for the result",
   "sabotage.tester.fail": "This tester is on cooldown. Try again in a few seconds.",
   "sabotage.detective_shears_reveal": "%s was a %s!",
