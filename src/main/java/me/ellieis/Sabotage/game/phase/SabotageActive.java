@@ -1,12 +1,11 @@
 package me.ellieis.Sabotage.game.phase;
 
 import com.google.common.collect.ImmutableSet;
+import eu.pb4.polymer.virtualentity.api.ElementHolder;
+import eu.pb4.polymer.virtualentity.api.elements.TextDisplayElement;
 import eu.pb4.sidebars.api.Sidebar;
 import me.ellieis.Sabotage.Sabotage;
-import me.ellieis.Sabotage.game.EndReason;
-import me.ellieis.Sabotage.game.GameStates;
-import me.ellieis.Sabotage.game.Roles;
-import me.ellieis.Sabotage.game.TeamManager;
+import me.ellieis.Sabotage.game.*;
 import me.ellieis.Sabotage.game.config.DetectiveConfig;
 import me.ellieis.Sabotage.game.config.InnocentConfig;
 import me.ellieis.Sabotage.game.config.SabotageConfig;
@@ -24,6 +23,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.TntEntity;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.decoration.DisplayEntity;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.item.ItemStack;
@@ -97,6 +97,7 @@ public class SabotageActive {
     private SidebarWidget detectiveSidebar;
     private SidebarWidget saboteurSidebar;
     private final TeamManager teamManager;
+    private final ChatManager chatManager;
     public SabotageActive(SabotageConfig config, GameSpace gameSpace, SabotageMap map, ServerWorld world, GameActivity activity) {
         this.config = config;
         this.gameSpace = gameSpace;
@@ -109,6 +110,7 @@ public class SabotageActive {
         this.karmaManager = new KarmaManager(stats);
         this.taskScheduler = new TaskScheduler(gameSpace, world);
         this.teamManager = new TeamManager(gameSpace, activity, this);
+        this.chatManager = new ChatManager(gameSpace);
         Sabotage.activeGames.add(this);
     }
 
@@ -380,7 +382,6 @@ public class SabotageActive {
             karmaManager.setKarma(plr, 20);
             plr.setExperiencePoints(plr.getNextLevelExperience() - 1);
         });
-        // to-do: chest spawns
     }
 
     public void End(EndReason endReason) {
@@ -465,7 +466,6 @@ public class SabotageActive {
     private EventResult onExplosion(Explosion explosion, List<BlockPos> explodedBlocks) {
         int i = 0;
         for (BlockPos blockPos : explodedBlocks) {
-            i++;
             Block block = explosion.getWorld().getBlockState(blockPos).getBlock();
             if (block instanceof TesterSign || block instanceof WallTesterSign) {
                 LivingEntity entity = explosion.getCausingEntity();
@@ -494,6 +494,10 @@ public class SabotageActive {
             } else {
                 final BlockPos blockPos1 = blockPos;
                 final BlockState blockState = world.getBlockState(blockPos);
+                if (blockState.getBlock() == Blocks.AIR) {
+                    continue;
+                }
+                i++;
                 taskScheduler.addTask(new Task((int) world.getTime() + (((100 + (int) (Math.random() *  200)) + (20 * i))),
                         (_gameSpace) -> {
                             world.setBlockState(blockPos1, blockState);
@@ -505,19 +509,10 @@ public class SabotageActive {
     }
 
     private boolean onChat(ServerPlayerEntity plr, SignedMessage signedMessage, MessageType.Parameters parameters) {
+        chatManager.onChat(plr, signedMessage.getContent());
         if (gameState == GameStates.ACTIVE) {
             if (plr.isSpectator()) {
                 teamManager.dead.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.GRAY).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
-            } else if (teamManager.detectives.contains(plr)) {
-                teamManager.detectives.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.BLUE).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
-                teamManager.innocents.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.BLUE).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
-                teamManager.saboteurs.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(TeamManager.getRoleColor(teamManager.getPlayerRole(plr))).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
-                teamManager.dead.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.BLUE).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
-            } else {
-                teamManager.detectives.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
-                teamManager.innocents.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
-                teamManager.saboteurs.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(TeamManager.getRoleColor(teamManager.getPlayerRole(plr))).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
-                teamManager.dead.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
             }
             // I have no idea what this is (or what it does), docs said to use it so I'm using it
             SentMessage.of(signedMessage);
@@ -659,6 +654,7 @@ public class SabotageActive {
     public void onTick() {
         long time = world.getTime();
         taskScheduler.onTick();
+        chatManager.onTick();
         switch(gameState) {
             case COUNTDOWN -> {
                 if (time % 20 == 0) {
