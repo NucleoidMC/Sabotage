@@ -3,6 +3,8 @@ package me.ellieis.Sabotage.game.phase;
 import me.ellieis.Sabotage.game.config.SabotageConfig;
 import me.ellieis.Sabotage.game.map.SabotageMap;
 import me.ellieis.Sabotage.game.map.SabotageMapBuilder;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.MinecraftServer;
@@ -21,6 +23,7 @@ import xyz.nucleoid.plasmid.api.game.player.JoinOffer;
 import xyz.nucleoid.plasmid.api.game.rule.GameRuleType;
 import xyz.nucleoid.stimuli.event.EventResult;
 import xyz.nucleoid.stimuli.event.block.BlockRandomTickEvent;
+import xyz.nucleoid.stimuli.event.entity.EntityDamageEvent;
 
 public class SabotageWaiting {
     private final SabotageConfig config;
@@ -48,6 +51,7 @@ public class SabotageWaiting {
         activity.deny(GameRuleType.ICE_MELT);
         activity.deny(GameRuleType.PLACE_BLOCKS);
         activity.deny(GameRuleType.PORTALS);
+        activity.listen(EntityDamageEvent.EVENT, (entity, source, amount) -> EventResult.DENY);
     }
     public static GameOpenProcedure Open(GameOpenContext<SabotageConfig> context) {
         SabotageConfig config = context.game().config();

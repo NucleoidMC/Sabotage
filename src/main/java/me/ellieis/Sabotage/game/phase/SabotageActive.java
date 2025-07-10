@@ -81,8 +81,6 @@ public class SabotageActive {
     public final GameSpace gameSpace;
     private final SabotageMap map;
     private final ServerWorld world;
-    // used in the game end message to list all saboteurs
-    private PlayerSet initialSaboteurs;
     public final GameStatisticBundle stats;
     private final KarmaManager karmaManager;
     private final TaskScheduler taskScheduler;
@@ -110,7 +108,7 @@ public class SabotageActive {
         this.karmaManager = new KarmaManager(stats);
         this.taskScheduler = new TaskScheduler(gameSpace, world);
         this.teamManager = new TeamManager(gameSpace, activity, this);
-        this.chatManager = new ChatManager(gameSpace);
+        this.chatManager = new ChatManager(gameSpace, config, teamManager);
         Sabotage.activeGames.add(this);
     }
 
@@ -131,10 +129,6 @@ public class SabotageActive {
         activity.deny(GameRuleType.FALL_DAMAGE);
         activity.deny(GameRuleType.SATURATED_REGENERATION);
         activity.deny(GameRuleType.PVP);
-        activity.deny(GameRuleType.PORTALS);
-        activity.deny(GameRuleType.HUNGER);
-        activity.deny(GameRuleType.ICE_MELT);
-        activity.deny(GameRuleType.PLACE_BLOCKS);
         activity.deny(GameRuleType.FIRE_TICK);
         activity.deny(GameRuleType.BREAK_BLOCKS);
         activity.deny(GameRuleType.CRAFTING);
@@ -391,7 +385,7 @@ public class SabotageActive {
         endTime = world.getTime();
         gameState = GameStates.ENDED;
         rules(activity);
-        plrs.sendMessage(Text.translatable("sabotage.game_end", Text.literal(getPlayerNamesInSet(initialSaboteurs)).formatted(Formatting.RED)));
+        plrs.sendMessage(Text.translatable("sabotage.game_end", Text.literal(getPlayerNamesInSet(teamManager.initialSaboteurs)).formatted(Formatting.RED)));
         if (endReason == EndReason.INNOCENT_WIN) {
             plrs.sendMessage(Text.translatable(
                     "sabotage.game_end.innocents",
@@ -509,7 +503,9 @@ public class SabotageActive {
     }
 
     private boolean onChat(ServerPlayerEntity plr, SignedMessage signedMessage, MessageType.Parameters parameters) {
-        chatManager.onChat(plr, signedMessage.getContent());
+        if (teamManager.getPlayerRole(plr) != Roles.NONE) {
+            chatManager.onChat(plr, signedMessage.getContent());
+        }
         if (gameState == GameStates.ACTIVE) {
             if (plr.isSpectator()) {
                 teamManager.dead.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.GRAY).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));

@@ -10,10 +10,11 @@ import xyz.nucleoid.plasmid.api.game.common.config.WaitingLobbyConfig;
 
 import java.util.OptionalInt;
 
-public record SabotageConfig(Identifier map, int time, Identifier dimension, int countdownTime, int gracePeriod, int timeLimit, int endDelay, int chestCount, InnocentConfig innocentConfig, DetectiveConfig detectiveConfig, SaboteurConfig saboteurConfig, WaitingLobbyConfig playerConfig) {
+public record SabotageConfig(Identifier map, boolean proximityTextChat, int time, Identifier dimension, int countdownTime, int gracePeriod, int timeLimit, int endDelay, int chestCount, InnocentConfig innocentConfig, DetectiveConfig detectiveConfig, SaboteurConfig saboteurConfig, WaitingLobbyConfig playerConfig) {
     public static final MapCodec<SabotageConfig> CODEC = RecordCodecBuilder.mapCodec(instance ->
         instance.group(
                 Identifier.CODEC.fieldOf("map").forGetter(SabotageConfig::map),
+                Codec.BOOL.optionalFieldOf("proximity_text_chat", false).forGetter(SabotageConfig::proximityTextChat),
                 Codec.INT.optionalFieldOf("time", 6000).forGetter(SabotageConfig::time),
                 Identifier.CODEC.optionalFieldOf("dimension", Fantasy.DEFAULT_DIM_TYPE.getValue()).forGetter(SabotageConfig::dimension),
                 Codec.INT.optionalFieldOf("countdown_time", 5).forGetter(SabotageConfig::countdownTime),

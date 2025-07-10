@@ -1,11 +1,14 @@
 package me.ellieis.Sabotage.game;
 
+import me.ellieis.Sabotage.game.config.SabotageConfig;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.decoration.DisplayEntity;
+import net.minecraft.network.packet.s2c.play.EntityPassengersSetS2CPacket;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.TeleportTarget;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
@@ -22,9 +25,13 @@ class messageInfo {
 }
 public class ChatManager {
     GameSpace gameSpace;
+    SabotageConfig config;
+    TeamManager teamManager;
     HashMap<ServerPlayerEntity, ArrayList<messageInfo>> messages = new HashMap<>();
-    public ChatManager(GameSpace gameSpace) {
+    public ChatManager(GameSpace gameSpace, SabotageConfig config, TeamManager teamManager) {
         this.gameSpace = gameSpace;
+        this.config = config;
+        this.teamManager = teamManager;
         for (ServerPlayerEntity player : gameSpace.getPlayers()) {
             messages.put(player, new ArrayList<>());
         }
@@ -32,6 +39,28 @@ public class ChatManager {
 
 
     public void onChat(ServerPlayerEntity plr, Text message) {
+        if (config.proximityTextChat()) {
+            proximityTextChat(plr, message);
+        } else {
+            globalTextChat(plr, message);
+        }
+    }
+
+    private void globalTextChat(ServerPlayerEntity plr, Text message) {
+        if (teamManager.detectives.contains(plr)) {
+            teamManager.detectives.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.BLUE).append(message.copy().formatted(Formatting.RESET)));
+            teamManager.innocents.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.BLUE).append(message.copy().formatted(Formatting.RESET)));
+            teamManager.saboteurs.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(TeamManager.getRoleColor(teamManager.getPlayerRole(plr))).append(message.copy().formatted(Formatting.RESET)));
+            teamManager.dead.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.BLUE).append(message.copy().formatted(Formatting.RESET)));
+        } else {
+            teamManager.detectives.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(message.copy().formatted(Formatting.RESET)));
+            teamManager.innocents.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(message.copy().formatted(Formatting.RESET)));
+            teamManager.saboteurs.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(TeamManager.getRoleColor(teamManager.getPlayerRole(plr))).append(message.copy().formatted(Formatting.RESET)));
+            teamManager.dead.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.YELLOW).append(message.copy().formatted(Formatting.RESET)));
+        }
+    }
+
+    private void proximityTextChat(ServerPlayerEntity plr, Text message) {
         DisplayEntity.TextDisplayEntity entity = new DisplayEntity.TextDisplayEntity(EntityType.TEXT_DISPLAY, plr.getWorld());
         entity.setBillboardMode(DisplayEntity.BillboardMode.CENTER);
         entity.setText(message);
