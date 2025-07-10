@@ -22,7 +22,7 @@ public class DetectiveShears extends Item implements PolymerItem {
 
     @Override
     public ActionResult useOnEntity(ItemStack item, PlayerEntity plr, LivingEntity entity, Hand hand) {
-        World world = plr.getEntityWorld();
+        World world = plr.getWorld();
         if (!world.isClient()) {
             for (SabotageActive game : Sabotage.activeGames) {
                 if (game.getWorld().equals(world) && (item.getMaxDamage() - item.getDamage()) > 1) {

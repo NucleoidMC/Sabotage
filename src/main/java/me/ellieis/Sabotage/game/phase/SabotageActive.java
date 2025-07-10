@@ -677,7 +677,7 @@ public class SabotageActive {
                     Set<PositionFlag> flags = ImmutableSet.of(PositionFlag.X_ROT, PositionFlag.Y_ROT);
 
                     // Teleport without changing the pitch and yaw
-                    plr.teleport(plr.getServerWorld(), pos.getX(), pos.getY(), pos.getZ(), flags, 0, 0, false);
+                    plr.teleport(plr.getWorld(), pos.getX(), pos.getY(), pos.getZ(), flags, 0, 0, false);
                 }
             }
 
