@@ -3,6 +3,7 @@ package me.ellieis.Sabotage.game.phase;
 import me.ellieis.Sabotage.game.config.SabotageConfig;
 import me.ellieis.Sabotage.game.map.SabotageMap;
 import me.ellieis.Sabotage.game.map.SabotageMapBuilder;
+import me.ellieis.Sabotage.game.map.WaitingMap;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.registry.RegistryKey;
@@ -28,10 +29,10 @@ import xyz.nucleoid.stimuli.event.entity.EntityDamageEvent;
 public class SabotageWaiting {
     private final SabotageConfig config;
     private final GameSpace gameSpace;
-    private final SabotageMap map;
+    private final WaitingMap map;
     private final ServerWorld world;
 
-    public SabotageWaiting(SabotageConfig config, GameSpace gameSpace, SabotageMap map, ServerWorld world) {
+    public SabotageWaiting(SabotageConfig config, GameSpace gameSpace, WaitingMap map, ServerWorld world) {
         this.config = config;
         this.gameSpace = gameSpace;
         this.map = map;
@@ -57,11 +58,9 @@ public class SabotageWaiting {
         SabotageConfig config = context.game().config();
         MinecraftServer server = context.server();
         // set up how the world that this minigame will take place in should be constructed
-        SabotageMap map = SabotageMapBuilder.build(server, config.map(), config);
+        WaitingMap map = SabotageMapBuilder.buildWaiting(server, config.waitingLobby(), config);
         RuntimeWorldConfig worldConfig = new RuntimeWorldConfig()
-                .setGenerator(map.asChunkGenerator(server))
-                .setDimensionType(RegistryKey.of(RegistryKeys.DIMENSION_TYPE, config.dimension()))
-                .setTimeOfDay(config.time());
+                .setGenerator(map.asChunkGenerator(server));
         return context.openWithWorld(worldConfig, (activity, world) -> {
             SabotageWaiting game = new SabotageWaiting(config, activity.getGameSpace(), map, world);
             GameWaitingLobby.addTo(activity, config.playerConfig());
@@ -75,11 +74,14 @@ public class SabotageWaiting {
     }
 
     public GameResult requestStart() {
-        SabotageActive.Open(this.gameSpace, this.world, this.map, this.config);
+        SabotageActive.Open(this.gameSpace, this.config);
+        gameSpace.getWorlds().remove(this.world);
         return GameResult.ok();
     }
     private JoinAcceptorResult acceptPlayer(JoinAcceptor acceptor) {
-        TemplateRegion spawn = map.getTemplate().getMetadata().getFirstRegion("waiting_spawn");
-        return acceptor.teleport(this.world, (spawn != null) ? spawn.getBounds().center() : new Vec3d(0, 64, 0)).thenRunForEach(plr -> plr.changeGameMode(GameMode.ADVENTURE));
+        return acceptor.teleport(this.world, Vec3d.ZERO).thenRunForEach(plr -> {
+            map.spawnPlayer(world, plr);
+            plr.changeGameMode(GameMode.ADVENTURE);
+        });
     }
 }

@@ -13,6 +13,7 @@ import me.ellieis.Sabotage.game.config.SaboteurConfig;
 import me.ellieis.Sabotage.game.custom.blocks.TesterSign;
 import me.ellieis.Sabotage.game.custom.blocks.WallTesterSign;
 import me.ellieis.Sabotage.game.map.SabotageMap;
+import me.ellieis.Sabotage.game.map.SabotageMapBuilder;
 import me.ellieis.Sabotage.game.statistics.KarmaManager;
 import me.ellieis.Sabotage.game.utils.Task;
 import me.ellieis.Sabotage.game.utils.TaskScheduler;
@@ -33,6 +34,8 @@ import net.minecraft.network.message.SentMessage;
 import net.minecraft.network.message.SignedMessage;
 import net.minecraft.network.packet.s2c.play.PositionFlag;
 import net.minecraft.network.packet.s2c.play.TeamS2CPacket;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.scoreboard.number.BlankNumberFormat;
 import net.minecraft.screen.ScreenTexts;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -49,6 +52,7 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.World;
 import net.minecraft.world.explosion.Explosion;
+import xyz.nucleoid.fantasy.RuntimeWorldConfig;
 import xyz.nucleoid.plasmid.api.game.GameActivity;
 import xyz.nucleoid.plasmid.api.game.GameCloseReason;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
@@ -404,7 +408,13 @@ public class SabotageActive {
         }
         gameSpace.getPlayers().playSound(SoundEvents.ENTITY_PLAYER_LEVELUP);
     }
-    public static void Open(GameSpace gameSpace, ServerWorld world, SabotageMap map, SabotageConfig config) {
+    public static void Open(GameSpace gameSpace, SabotageConfig config) {
+        SabotageMap map = SabotageMapBuilder.buildActive(gameSpace.getServer(), config.map(), config);
+        RuntimeWorldConfig worldConfig = new RuntimeWorldConfig()
+                .setGenerator(map.asChunkGenerator(gameSpace.getServer()))
+                .setDimensionType(RegistryKey.of(RegistryKeys.DIMENSION_TYPE, config.dimension()))
+                .setTimeOfDay(config.time());
+        ServerWorld world = gameSpace.getWorlds().add(worldConfig);
         gameSpace.setActivity(activity -> {
             SabotageActive game = new SabotageActive(config, gameSpace, map, world, activity);
             game.startTime = world.getTime();

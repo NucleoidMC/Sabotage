@@ -11,12 +11,20 @@ import xyz.nucleoid.plasmid.api.game.GameOpenException;
 import java.io.IOException;
 
 public class SabotageMapBuilder {
-    public static SabotageMap build(MinecraftServer server, Identifier identifier, SabotageConfig config) {
+    public static SabotageMap buildActive(MinecraftServer server, Identifier identifier, SabotageConfig config) {
         try {
             MapTemplate template = MapTemplateSerializer.loadFromResource(server, identifier);
             return new SabotageMap(template, config);
         } catch(IOException exception) {
             throw new GameOpenException(Text.literal("Failed to load map " + identifier), exception);
+        }
+    }
+    public static WaitingMap buildWaiting(MinecraftServer server, Identifier identifier, SabotageConfig config) {
+        try {
+            MapTemplate template = MapTemplateSerializer.loadFromResource(server, identifier);
+            return new WaitingMap(template);
+        } catch(IOException exception) {
+            throw new GameOpenException(Text.literal("Failed to load waiting lobby " + identifier), exception);
         }
     }
 }

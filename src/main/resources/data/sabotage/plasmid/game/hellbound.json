@@ -2,10 +2,5 @@
   "type": "sabotage:sabotage",
   "dimension": "minecraft:the_nether",
   "map": "sabotage:hellbound",
-  "chest_count": 200,
-  "players": {
-    "min": 1,
-    "max": 64,
-    "threshold": 6
-  }
+  "chest_count": 200
 }
