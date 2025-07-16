@@ -26,7 +26,7 @@ public record SabotageConfig(Identifier map,Identifier waitingLobby, boolean pro
                 Codec.INT.optionalFieldOf("end_delay", 10).forGetter(SabotageConfig::endDelay),
                 Codec.INT.fieldOf("chest_count").forGetter(SabotageConfig::chestCount),
                 InnocentConfig.CODEC.optionalFieldOf("innocent", new InnocentConfig(20, 100, 20)).forGetter(SabotageConfig::innocentConfig),
-                DetectiveConfig.CODEC.optionalFieldOf("detective", new DetectiveConfig(20, 100, 80)).forGetter(SabotageConfig::detectiveConfig),
+                DetectiveConfig.CODEC.optionalFieldOf("detective", new DetectiveConfig(20, 100, 80, false)).forGetter(SabotageConfig::detectiveConfig),
                 SaboteurConfig.CODEC.optionalFieldOf("saboteur", new SaboteurConfig(20, 80, 20)).forGetter(SabotageConfig::saboteurConfig),
                 WaitingLobbyConfig.CODEC.optionalFieldOf("players", new WaitingLobbyConfig(new PlayerLimiterConfig(OptionalInt.empty(), true), (FabricLoader.getInstance().isDevelopmentEnvironment() ? 1 : 4), 6, new WaitingLobbyConfig.Countdown(30, 5))).forGetter(SabotageConfig::playerConfig)
         ).apply(instance, SabotageConfig::new)

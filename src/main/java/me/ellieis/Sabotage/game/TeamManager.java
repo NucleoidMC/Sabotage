@@ -1,5 +1,6 @@
 package me.ellieis.Sabotage.game;
 
+import me.ellieis.Sabotage.game.config.SabotageConfig;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.s2c.play.PlayerListS2CPacket;
@@ -43,10 +44,12 @@ public class TeamManager {
     public final MutablePlayerSet innocents;
     public final MutablePlayerSet dead;
     public PlayerSet initialSaboteurs;
+    private final SabotageConfig config;
 
-    public TeamManager(GameSpace gameSpace, GameActivity gameActivity, SabotageActive game) {
+    public TeamManager(GameSpace gameSpace, GameActivity gameActivity, SabotageActive game, SabotageConfig config) {
         this.gameSpace = gameSpace;
         this.gameActivity = gameActivity;
+        this.config = config;
         gameActivity.listen(GamePlayerEvents.ADD, this::onAddPlayer);
         gameActivity.listen(GamePlayerEvents.REMOVE, this::onRemovePlayer);
         this.game = game;
@@ -143,17 +146,6 @@ public class TeamManager {
         plr.networkHandler.sendPacket(TeamS2CPacket.changePlayerTeam(team, otherPlr.getNameForScoreboard(), operation));
     }
 
-    public void removePlayerTeam(ServerPlayerEntity plr, boolean broadcast) {
-        if (broadcast) {
-            for (ServerPlayerEntity otherPlr : gameSpace.getPlayers()) {
-                System.out.println(plr.getNameForScoreboard() +  ": " + getPlayerRole(plr).toString());
-                System.out.println(otherPlr.getNameForScoreboard() +  ": " + getPlayerRole(otherPlr).toString());
-                playerTeamPacket(getPlayerTeam(plr, getPlayerRole(otherPlr) == Roles.SABOTEUR), otherPlr, plr, TeamS2CPacket.Operation.REMOVE);
-            };
-        } else {
-            playerTeamPacket(getPlayerTeam(plr, getPlayerRole(plr) == Roles.SABOTEUR), plr, plr, TeamS2CPacket.Operation.REMOVE);
-        }
-    }
     public Team getPlayerTeam(ServerPlayerEntity plr, boolean isSab) {
         Roles role = getPlayerRole(plr);
         if (isSab) {
@@ -206,6 +198,9 @@ public class TeamManager {
         Collections.shuffle(plrList);
         int sabCount = Math.max(playerCount / 3, 1);
         int detCount = playerCount / 8;
+        if (detCount < 1 && config.detectiveConfig().forceDetective()) {
+            detCount = 1;
+        }
         for (ServerPlayerEntity plr : plrList) {
             if (detCount >= 1) {
                 detectives.add(plr);

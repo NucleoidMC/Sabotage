@@ -50,6 +50,7 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
+import net.minecraft.world.GameRules;
 import net.minecraft.world.World;
 import net.minecraft.world.explosion.Explosion;
 import xyz.nucleoid.fantasy.RuntimeWorldConfig;
@@ -68,6 +69,7 @@ import xyz.nucleoid.plasmid.api.util.PlayerRef;
 import xyz.nucleoid.stimuli.event.EventResult;
 import xyz.nucleoid.stimuli.event.block.BlockRandomTickEvent;
 import xyz.nucleoid.stimuli.event.block.BlockUseEvent;
+import xyz.nucleoid.stimuli.event.player.PlayerDamageEvent;
 import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
 import xyz.nucleoid.stimuli.event.player.ReplacePlayerChatEvent;
 import xyz.nucleoid.stimuli.event.world.ExplosionDetonatedEvent;
@@ -92,7 +94,7 @@ public class SabotageActive {
     private long startTime;
     private long endTime;
     private final GameActivity activity;
-    public GameStates gameState = GameStates.COUNTDOWN;
+    public GameStates gameState = GameStates.LOBBY_WAITING;
     private GlobalWidgets widgets;
     private SidebarWidget globalSidebar;
     private SidebarWidget innocentSidebar;
@@ -111,7 +113,7 @@ public class SabotageActive {
         this.activity = activity;
         this.karmaManager = new KarmaManager(stats);
         this.taskScheduler = new TaskScheduler(gameSpace, world);
-        this.teamManager = new TeamManager(gameSpace, activity, this);
+        this.teamManager = new TeamManager(gameSpace, activity, this, config);
         this.chatManager = new ChatManager(gameSpace, config, teamManager);
         Sabotage.activeGames.add(this);
     }
@@ -133,6 +135,7 @@ public class SabotageActive {
         activity.deny(GameRuleType.FALL_DAMAGE);
         activity.deny(GameRuleType.SATURATED_REGENERATION);
         activity.deny(GameRuleType.PVP);
+        activity.deny(GameRuleType.HUNGER);
         activity.deny(GameRuleType.FIRE_TICK);
         activity.deny(GameRuleType.BREAK_BLOCKS);
         activity.deny(GameRuleType.CRAFTING);
@@ -422,9 +425,9 @@ public class SabotageActive {
             game.globalSidebar = game.widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
             game.globalSidebar.setPriority(Sidebar.Priority.LOW);
             game.globalSidebar.addLines(Text.translatable("sabotage.sidebar.countdown"));
-
+            world.getGameRules().get(GameRules.LOCATOR_BAR).set(false, gameSpace.getServer());
             rules(activity);
-            activity.listen(GameActivityEvents.TICK, game::onTick);
+            activity.listen(GameActivityEvents.TICK, () -> game.onTick(gameSpace.getPlayers()));
             activity.listen(PlayerDeathEvent.EVENT, game::onDeath);
             activity.listen(ReplacePlayerChatEvent.EVENT, game::onChat);
             activity.listen(GamePlayerEvents.REMOVE, game::onPlayerRemove);
@@ -434,11 +437,11 @@ public class SabotageActive {
             activity.listen(BlockUseEvent.EVENT, game::onBlockUse);
             activity.listen(BlockRandomTickEvent.EVENT, (_block, _pos, _state) -> EventResult.DENY);
             activity.listen(ExplosionDetonatedEvent.EVENT, game::onExplosion);
+            activity.listen(PlayerDamageEvent.EVENT, game::onDamage);
             map.setWorld(world);
             map.generateChests();
             PlayerSet plrs = game.gameSpace.getPlayers();
-            plrs.showTitle(Text.literal(Integer.toString(game.config.countdownTime())).formatted(Formatting.GOLD), 20);
-            plrs.playSound(SoundEvents.BLOCK_NOTE_BLOCK_HARP.value(), SoundCategory.PLAYERS, 1.0F, 2.0F);
+
             for (ServerPlayerEntity plr : plrs) {
                 game.map.spawnPlayer(world, plr);
                 game.globalSidebar.addPlayer(plr);
@@ -447,6 +450,21 @@ public class SabotageActive {
             }
 
         });
+    }
+
+    private EventResult onDamage(ServerPlayerEntity plr, DamageSource damageSource, float v) {
+        Roles receiverRole = teamManager.getPlayerRole(plr);
+        if (receiverRole == Roles.DETECTIVE) {
+            Entity attackerEntity = damageSource.getAttacker();
+            if (attackerEntity instanceof ServerPlayerEntity attacker) {
+                Roles attackerRole = teamManager.getPlayerRole(attacker);
+                if (attackerRole != Roles.SABOTEUR) {
+                    attacker.sendMessage(Text.translatable("sabotage.damage_detective_message", Text.translatable("sabotage.detective").formatted(Formatting.BLUE)));
+                    attacker.playSound(SoundEvents.BLOCK_ANVIL_PLACE, 1, 0.5f);
+                }
+            }
+        }
+        return EventResult.PASS;
     }
 
     private ActionResult onBlockUse(ServerPlayerEntity player, Hand hand, BlockHitResult blockHitResult) {
@@ -527,7 +545,6 @@ public class SabotageActive {
         return false;
     }
     private EventResult onDeath(ServerPlayerEntity plr, DamageSource damageSource) {
-        // remove player from team
         Entity entityAttacker = damageSource.getAttacker();
         Roles plrRole = teamManager.getPlayerRole(plr);
         plr.changeGameMode(GameMode.SPECTATOR);
@@ -656,16 +673,46 @@ public class SabotageActive {
             }
         }
     }
+    private void preventPlayerMovement() {
+        // Make sure players don't move during countdown
+        for (ServerPlayerEntity plr : getAlivePlayers()) {
+            Vec3d pos = map.getPlayerSpawns().get(new PlayerRef(plr.getUuid()));
+            // Set X and Y as relative so it will send 0 change when we pass yaw (yaw - yaw = 0) and pitch
+            Set<PositionFlag> flags = ImmutableSet.of(PositionFlag.X_ROT, PositionFlag.Y_ROT);
 
-    public void onTick() {
+            // Teleport without changing the pitch and yaw
+            plr.teleport(plr.getWorld(), pos.getX(), pos.getY(), pos.getZ(), flags, 0, 0, false);
+        }
+    }
+    public void onTick(PlayerSet plrs) {
         long time = world.getTime();
         taskScheduler.onTick();
         chatManager.onTick();
         switch(gameState) {
+            // 3 second buffer period for players to load
+            case LOBBY_WAITING -> {
+                plrs.sendActionBar(Text.translatable("sabotage.waiting"));
+
+                if (time % 20 == 0) {
+                    for (ServerPlayerEntity plr : plrs) {
+                        plr.setStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, 40, 0, false, false), plr);
+                    }
+
+                    int secondsSinceStart = (int) Math.floor((time / 20) - (startTime / 20));
+                    if (secondsSinceStart >= 3) {
+                        startTime = time;
+                        gameState = GameStates.COUNTDOWN;
+                        plrs.sendActionBar(Text.literal(""), 0, 0, 0);
+                        plrs.showTitle(Text.literal(Integer.toString(config.countdownTime())).formatted(Formatting.GOLD), 20);
+                        plrs.playSound(SoundEvents.BLOCK_NOTE_BLOCK_HARP.value(), SoundCategory.PLAYERS, 1.0F, 2.0F);
+                    }
+                }
+
+                preventPlayerMovement();
+            }
             case COUNTDOWN -> {
                 if (time % 20 == 0) {
                     // second has passed
-                    PlayerSet plrs = gameSpace.getPlayers();
                     int secondsSinceStart = (int) Math.floor((time / 20) - (startTime / 20));
                     int countdownTime = config.countdownTime();
                     if (secondsSinceStart >= countdownTime) {
@@ -680,15 +727,8 @@ public class SabotageActive {
                         plrs.playSound(SoundEvents.BLOCK_NOTE_BLOCK_HARP.value(), SoundCategory.PLAYERS, 1.0F, 2.0F);
                     }
                 }
-                // Make sure players don't move during countdown
-                for (ServerPlayerEntity plr : getAlivePlayers()) {
-                    Vec3d pos = map.getPlayerSpawns().get(new PlayerRef(plr.getUuid()));
-                    // Set X and Y as relative so it will send 0 change when we pass yaw (yaw - yaw = 0) and pitch
-                    Set<PositionFlag> flags = ImmutableSet.of(PositionFlag.X_ROT, PositionFlag.Y_ROT);
 
-                    // Teleport without changing the pitch and yaw
-                    plr.teleport(plr.getWorld(), pos.getX(), pos.getY(), pos.getZ(), flags, 0, 0, false);
-                }
+                preventPlayerMovement();
             }
 
             case GRACE_PERIOD -> {

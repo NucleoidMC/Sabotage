@@ -49,6 +49,7 @@
   "sabotage.saboteur": "Saboteur",
   "sabotage.saboteurs": "Saboteurs",
 
+  "sabotage.damage_detective_message": "You damaged the %s",
   "sabotage.kill_message": "%s was killed. %s players remain.",
   "sabotage.kill_message_attacker": "You killed %s %s"
 }
