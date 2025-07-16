@@ -97,11 +97,12 @@ public class SabotageActive {
     public GameStates gameState = GameStates.LOBBY_WAITING;
     private GlobalWidgets widgets;
     private SidebarWidget globalSidebar;
-    private SidebarWidget innocentSidebar;
-    private SidebarWidget detectiveSidebar;
-    private SidebarWidget saboteurSidebar;
+    public SidebarWidget innocentSidebar;
+    public SidebarWidget detectiveSidebar;
+    public SidebarWidget saboteurSidebar;
     private final TeamManager teamManager;
     private final ChatManager chatManager;
+    private final CombatManager combatManager;
     public SabotageActive(SabotageConfig config, GameSpace gameSpace, SabotageMap map, ServerWorld world, GameActivity activity) {
         this.config = config;
         this.gameSpace = gameSpace;
@@ -115,6 +116,7 @@ public class SabotageActive {
         this.taskScheduler = new TaskScheduler(gameSpace, world);
         this.teamManager = new TeamManager(gameSpace, activity, this, config);
         this.chatManager = new ChatManager(gameSpace, config, teamManager);
+        this.combatManager = new CombatManager(gameSpace, teamManager, karmaManager, config, this);
         Sabotage.activeGames.add(this);
     }
 
@@ -238,14 +240,6 @@ public class SabotageActive {
         teamManager.innocents.forEach(plr -> innocentSidebar.addPlayer(plr));
     }
 
-    private Text createAttackerKillMessage(ServerPlayerEntity plr, int karma) {
-        Roles role = teamManager.getPlayerRole(plr);
-        Formatting victimColor = TeamManager.getRoleColor(role);
-        return Text.translatable(
-                "sabotage.kill_message_attacker",
-                plr.getName().copy().formatted(victimColor),
-                Text.literal("(" + karma + " karma)").formatted((karma >= 0) ? Formatting.GREEN : Formatting.RED)).formatted(Formatting.YELLOW);
-    }
     public EndReason checkWinCondition() {
         if (teamManager.saboteurs.isEmpty()) {
             return EndReason.INNOCENT_WIN;
@@ -351,29 +345,6 @@ public class SabotageActive {
         }
         return true;
     }
-    private void awardPlayerKill(ServerPlayerEntity attacker, ServerPlayerEntity plr, Roles plrRole, int innocentKarma, int detectiveKarma, int saboteurKarma) {
-        // attacker is confirmed innocent or detective
-        // 0.9 -> 1.05
-        switch(plrRole) {
-            case INNOCENT -> {
-                karmaManager.decrementKarma(attacker, innocentKarma);
-                attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_DETECT_PLAYER, 1, 1);
-                attacker.sendMessage(createAttackerKillMessage(plr, -innocentKarma));
-            }
-
-            case DETECTIVE -> {
-                karmaManager.decrementKarma(attacker, detectiveKarma);
-                attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_DETECT_PLAYER, 1, 1);
-                attacker.sendMessage(createAttackerKillMessage(plr, -detectiveKarma));
-            }
-
-            case SABOTEUR -> {
-                karmaManager.incrementKarma(attacker, saboteurKarma);
-                attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_OPEN_SHUTTER, 1, 1);
-                attacker.sendMessage(createAttackerKillMessage(plr, saboteurKarma));
-            }
-        }
-    }
 
     public void Start() {
         gameState = GameStates.ACTIVE;
@@ -452,18 +423,8 @@ public class SabotageActive {
         });
     }
 
-    private EventResult onDamage(ServerPlayerEntity plr, DamageSource damageSource, float v) {
-        Roles receiverRole = teamManager.getPlayerRole(plr);
-        if (receiverRole == Roles.DETECTIVE) {
-            Entity attackerEntity = damageSource.getAttacker();
-            if (attackerEntity instanceof ServerPlayerEntity attacker) {
-                Roles attackerRole = teamManager.getPlayerRole(attacker);
-                if (attackerRole != Roles.SABOTEUR) {
-                    attacker.sendMessage(Text.translatable("sabotage.damage_detective_message", Text.translatable("sabotage.detective").formatted(Formatting.BLUE)));
-                    attacker.playSound(SoundEvents.BLOCK_ANVIL_PLACE, 1, 0.5f);
-                }
-            }
-        }
+    private EventResult onDamage(ServerPlayerEntity plr, DamageSource damageSource, float damageAmount) {
+        combatManager.onDamage(plr, damageSource,damageAmount);
         return EventResult.PASS;
     }
 
@@ -546,75 +507,10 @@ public class SabotageActive {
     }
     private EventResult onDeath(ServerPlayerEntity plr, DamageSource damageSource) {
         Entity entityAttacker = damageSource.getAttacker();
-        Roles plrRole = teamManager.getPlayerRole(plr);
-        plr.changeGameMode(GameMode.SPECTATOR);
-        plr.playSound(SoundEvents.ENTITY_COW_DEATH, 1, 0.7f);
-        teamManager.dead.add(plr);
-        GameSpacePlayers plrSet = gameSpace.getPlayers();
-        plrSet.forEach((otherPlr) -> teamManager.playerTeamPacket(teamManager.deadTeam, otherPlr, plr, TeamS2CPacket.Operation.ADD));
-        if (plrRole == Roles.SABOTEUR) {
-            plrSet.forEach((otherPlr) -> {
-                Roles role = teamManager.getPlayerRole(otherPlr);
-                teamManager.playerTeamPacket((role == Roles.DETECTIVE) ?
-                        teamManager.det : (role == Roles.NONE) ?
-                        teamManager.deadTeam : teamManager.unknown,
-                        plr, otherPlr, TeamS2CPacket.Operation.ADD);
-            });
-        }
+        EventResult result = combatManager.onDeath(plr, damageSource);
 
-        if (gameState != GameStates.ACTIVE) {
-            return EventResult.DENY;
-        }
-
-        if (entityAttacker instanceof ServerPlayerEntity attacker) {
-            Roles attackerRole = teamManager.getPlayerRole(attacker);
-            // surely there's a better way to do this..
-            switch(attackerRole) {
-                case SABOTEUR -> {
-                    SaboteurConfig config = this.config.saboteurConfig();
-                    switch(plrRole) {
-                        case INNOCENT -> {
-                            karmaManager.incrementKarma(attacker, config.innocentKarmaAward());
-                            attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_OPEN_SHUTTER, 1, 1f);
-                            attacker.sendMessage(createAttackerKillMessage(plr, config.innocentKarmaAward()));
-                        }
-
-                        case DETECTIVE -> {
-                            karmaManager.incrementKarma(attacker, config.detectiveKarmaAward());
-                            attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_OPEN_SHUTTER, 1, 1f);
-                            attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_DETECT_PLAYER, 0.5f, 1f);
-                            attacker.sendMessage(createAttackerKillMessage(plr, config.detectiveKarmaAward()));
-                        }
-
-                        case SABOTEUR -> {
-                            karmaManager.decrementKarma(attacker, config.saboteurKarmaPenalty());
-                            attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_DETECT_PLAYER, 1, 1f);
-                            attacker.sendMessage(createAttackerKillMessage(plr, -config.saboteurKarmaPenalty()));
-                        }
-                    }
-                }
-
-                case DETECTIVE -> {
-                    DetectiveConfig config = this.config.detectiveConfig();
-                    awardPlayerKill(attacker, plr, plrRole, config.innocentKarmaPenalty(), config.detectiveKarmaPenalty(), config.saboteurKarmaAward());
-                }
-
-                case INNOCENT -> {
-                    InnocentConfig config = this.config.innocentConfig();
-                    awardPlayerKill(attacker, plr, plrRole, config.innocentKarmaPenalty(), config.detectiveKarmaPenalty(), config.saboteurKarmaAward());
-                }
-            }
-        }
-
-        if (plrRole == Roles.SABOTEUR) {
-            teamManager.saboteurs.remove(plr);
-            saboteurSidebar.removePlayer(plr);
-        } else if (plrRole == Roles.DETECTIVE) {
-            teamManager.detectives.remove(plr);
-            detectiveSidebar.removePlayer(plr);
-        } else if (plrRole == Roles.INNOCENT) {
-            teamManager.innocents.remove(plr);
-            innocentSidebar.removePlayer(plr);
+        if (result != EventResult.PASS) {
+            return result;
         }
 
         EndReason endReason = checkWinCondition();

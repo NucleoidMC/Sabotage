@@ -4,7 +4,6 @@ import me.ellieis.Sabotage.game.config.SabotageConfig;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.decoration.DisplayEntity;
-import net.minecraft.network.packet.s2c.play.EntityPassengersSetS2CPacket;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
@@ -15,13 +14,7 @@ import xyz.nucleoid.plasmid.api.game.GameSpace;
 
 import java.util.*;
 
-class messageInfo {
-    DisplayEntity.TextDisplayEntity entity;
-    int spawnTime;
-    public messageInfo(DisplayEntity.TextDisplayEntity entity, int spawnTime) {
-        this.entity = entity;
-        this.spawnTime = spawnTime;
-    }
+record messageInfo(DisplayEntity.TextDisplayEntity entity, int spawnTime) {
 }
 public class ChatManager {
     GameSpace gameSpace;
@@ -72,15 +65,15 @@ public class ChatManager {
         int i = 0;
         for (messageInfo info : entities) {
             positionLabel(plr, info, i);
-            int textLength = info.entity.getText().getString().length();
+            int textLength = info.entity().getText().getString().length();
             i += (int) Math.floor(textLength / 15);
             i++;
         }
     }
     private void positionLabel(ServerPlayerEntity plr, messageInfo info, int i) {
         Vec3d pos = plr.getPos();
-        info.entity.setTeleportDuration(1);
-        info.entity.teleportTo(new TeleportTarget((ServerWorld) plr.getWorld(),
+        info.entity().setTeleportDuration(1);
+        info.entity().teleportTo(new TeleportTarget((ServerWorld) plr.getWorld(),
                 pos.add(0, 2.5 + (i * 0.25), 0),
                 plr.getVelocity(),
                 0,
@@ -95,9 +88,9 @@ public class ChatManager {
             for (messageInfo info: entry.getValue()) {
                 ServerPlayerEntity plr = entry.getKey();
                 positionLabel(plr, info, i);
-                int textLength = info.entity.getText().getString().length();
-                if ((plr.getWorld().getTime() - info.spawnTime) >= 100 + textLength * 1.5) {
-                    info.entity.remove(Entity.RemovalReason.KILLED);
+                int textLength = info.entity().getText().getString().length();
+                if ((plr.getWorld().getTime() - info.spawnTime()) >= 100 + textLength * 1.5) {
+                    info.entity().remove(Entity.RemovalReason.KILLED);
                     messagesToRemove.add(info);
                 }
                 i += (int) Math.floor(textLength / 15);
