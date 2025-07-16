@@ -67,16 +67,16 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
             entry(Items.CROSSBOW, 4),
             entry(Items.IRON_LEGGINGS, 3),
             entry(Items.TNT, 3),
-            entry(Items.IRON_CHESTPLATE, 1),
-            entry(Items.GOLDEN_APPLE, 1)
+            entry(Items.GOLDEN_APPLE, 3),
+            entry(Items.IRON_CHESTPLATE, 1)
 
     );
     private static final Map<Item, Integer> durabilities = Map.ofEntries(
-            entry(Items.GOLDEN_AXE, 5),
-            entry(Items.IRON_SWORD, 250),
-            entry(Items.WOODEN_AXE, 10),
-            entry(Items.IRON_CHESTPLATE, 100),
-            entry(Items.IRON_LEGGINGS, 150),
+            entry(Items.GOLDEN_AXE, 3),
+            entry(Items.IRON_SWORD, 50),
+            entry(Items.WOODEN_AXE, 5),
+            entry(Items.IRON_CHESTPLATE, 50),
+            entry(Items.IRON_LEGGINGS, 50),
             entry(Items.BOW, 100),
             entry(Items.CROSSBOW, 30)
     );
@@ -104,6 +104,8 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
             FireworkExplosionComponent explode = new FireworkExplosionComponent(FireworkExplosionComponent.Type.BURST, colors, IntList.of(), false, false);
             FireworksComponent fireworkComponent = new FireworksComponent(0, List.of(explode));
             stack.set(DataComponentTypes.FIREWORKS, fireworkComponent);
+        } else if (item == Items.ARROW) {
+            stack.setCount(8);
         }
 
         if (durabilities.get(item) != null) {
