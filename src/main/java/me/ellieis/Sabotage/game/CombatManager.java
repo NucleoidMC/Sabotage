@@ -1,28 +1,47 @@
 package me.ellieis.Sabotage.game;
 
+import com.mojang.authlib.GameProfile;
+import com.mojang.authlib.properties.Property;
 import me.ellieis.Sabotage.game.config.DetectiveConfig;
 import me.ellieis.Sabotage.game.config.InnocentConfig;
 import me.ellieis.Sabotage.game.config.SabotageConfig;
 import me.ellieis.Sabotage.game.config.SaboteurConfig;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
 import me.ellieis.Sabotage.game.statistics.KarmaManager;
+import me.ellieis.Sabotage.game.utils.Task;
+import net.fabricmc.fabric.api.entity.FakePlayer;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityPose;
+import net.minecraft.entity.EntityType;
 import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.network.packet.s2c.play.TeamS2CPacket;
+import net.minecraft.entity.decoration.InteractionEntity;
+import net.minecraft.network.packet.s2c.play.*;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
 import xyz.nucleoid.plasmid.api.game.GameSpacePlayers;
+import xyz.nucleoid.plasmid.api.game.player.PlayerSet;
 import xyz.nucleoid.stimuli.event.EventResult;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 record CombatLog(ServerPlayerEntity attacker, float damage, long timeOfAttack) {
 
+}
+
+record BodyData(Roles role, List<InteractionEntity> hitboxes) {
+    public BodyData(Roles role) {
+        this(role, new ArrayList<>());
+    }
 }
 
 public class CombatManager {
@@ -31,7 +50,10 @@ public class CombatManager {
     TeamManager teamManager;
     SabotageConfig config;
     SabotageActive game;
+    private final HashMap<ServerPlayerEntity, BodyData> bodies = new HashMap<>();
+
     private final HashMap<ServerPlayerEntity, ArrayList<CombatLog>> playerDamageLog = new HashMap<>();
+
     public CombatManager(GameSpace gameSpace, TeamManager teamManager, KarmaManager karmaManager, SabotageConfig config, SabotageActive game) {
         this.gameSpace = gameSpace;
         this.teamManager = teamManager;
@@ -68,6 +90,7 @@ public class CombatManager {
         Roles plrRole = teamManager.getPlayerRole(plr);
         plr.changeGameMode(GameMode.SPECTATOR);
         plr.playSound(SoundEvents.ENTITY_COW_DEATH, 1, 0.7f);
+        createPlayerBody(plr, game.getWorld(), plrRole);
         teamManager.dead.add(plr);
         GameSpacePlayers plrSet = gameSpace.getPlayers();
         plrSet.forEach((otherPlr) -> teamManager.playerTeamPacket(teamManager.deadTeam, otherPlr, plr, TeamS2CPacket.Operation.ADD));
@@ -200,4 +223,57 @@ public class CombatManager {
         }
     }
 
+    private void createPlayerBody(ServerPlayerEntity plr, ServerWorld world, Roles plrRole) {
+        GameProfile originalProfile = plr.getGameProfile();
+        String name;
+        if (plr.getDisplayName() != null) {
+            name = plr.getDisplayName().getString();
+        } else {
+            name = plr.getName().getString();
+        }
+        GameProfile profile = new GameProfile(UUID.randomUUID(), name);
+
+        // can be empty in offline mode
+        List<Property> propertyList = originalProfile.getProperties().get("textures").stream().toList();
+        if (!propertyList.isEmpty()) {
+            Property property = propertyList.getFirst();
+            profile.getProperties().put("textures", new Property("textures", property.value(), property.signature()));
+        }
+        FakePlayer fakePlr = FakePlayer.get(world, profile);
+        PlayerSet plrs = gameSpace.getPlayers();
+        plrs.sendPacket(PlayerListS2CPacket.entryFromPlayer(List.of(fakePlr)));
+
+        plrs.sendPacket(new EntitySpawnS2CPacket(fakePlr.getId(), fakePlr.getUuid(), plr.getX(), plr.getY(), plr.getZ(), 0, 0, EntityType.PLAYER,0, Vec3d.ZERO, 0));
+        fakePlr.setPose(EntityPose.SLEEPING);
+        // body always occupies current x, x - 1 and possibly x - 2
+        BodyData bodyData = new BodyData(plrRole);
+        List<InteractionEntity> entities = bodyData.hitboxes();
+        for (int i = 0; i <= 2; i++) {
+            InteractionEntity interaction = new InteractionEntity(EntityType.INTERACTION, world);
+            interaction.setInteractionHeight(0.4f);
+            interaction.setPosition(plr.getPos().subtract(i, 0, 0));
+            entities.add(interaction);
+            world.spawnEntity(interaction);
+        }
+        bodies.put(plr, bodyData);
+
+        plrs.sendPacket(new EntityTrackerUpdateS2CPacket(fakePlr.getId(), fakePlr.getDataTracker().getChangedEntries()));
+        // delay removal so players can load the skin
+        game.taskScheduler.addTask(new Task((int) (gameSpace.getTime() + 200), (_gameSpace) ->  plr.networkHandler.sendPacket(new PlayerRemoveS2CPacket(List.of(fakePlr.getUuid())))));
+    }
+
+    public BodyResult getBodyRole(InteractionEntity entity) {
+        AtomicReference<Roles> role = new AtomicReference<>(Roles.NONE);
+        AtomicReference<ServerPlayerEntity> plrAtom = new AtomicReference<>();
+        bodies.forEach((plr, bodyData) -> {
+            for (InteractionEntity hitbox : bodyData.hitboxes()) {
+                if (entity.getBlockPos().equals(hitbox.getBlockPos())) {
+                    role.set(bodyData.role());
+                    plrAtom.set(plr);
+                    break;
+                }
+            }
+        });
+        return new BodyResult(plrAtom.get(), role.get());
+    }
 }

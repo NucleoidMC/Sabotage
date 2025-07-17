@@ -28,8 +28,8 @@ public class TaskScheduler {
         long time = world.getTime();
         for (int i = 0; i < tasks.size(); i++) {
             Task task = tasks.get(i);
-            if (task.executionTime <= time) {
-                task.task.accept(gameSpace);
+            if (task.executionTime() <= time) {
+                task.task().accept(gameSpace);
                 tasks.remove(task);
             }
         }

@@ -6,12 +6,10 @@ import eu.pb4.polymer.virtualentity.api.elements.TextDisplayElement;
 import eu.pb4.sidebars.api.Sidebar;
 import me.ellieis.Sabotage.Sabotage;
 import me.ellieis.Sabotage.game.*;
-import me.ellieis.Sabotage.game.config.DetectiveConfig;
-import me.ellieis.Sabotage.game.config.InnocentConfig;
 import me.ellieis.Sabotage.game.config.SabotageConfig;
-import me.ellieis.Sabotage.game.config.SaboteurConfig;
 import me.ellieis.Sabotage.game.custom.blocks.TesterSign;
 import me.ellieis.Sabotage.game.custom.blocks.WallTesterSign;
+import me.ellieis.Sabotage.game.custom.items.DetectiveShears;
 import me.ellieis.Sabotage.game.map.SabotageMap;
 import me.ellieis.Sabotage.game.map.SabotageMapBuilder;
 import me.ellieis.Sabotage.game.statistics.KarmaManager;
@@ -24,16 +22,17 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.TntEntity;
 import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.decoration.DisplayEntity;
+import net.minecraft.entity.decoration.InteractionEntity;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.entity.player.ItemCooldownManager;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.network.message.MessageType;
 import net.minecraft.network.message.SentMessage;
 import net.minecraft.network.message.SignedMessage;
 import net.minecraft.network.packet.s2c.play.PositionFlag;
-import net.minecraft.network.packet.s2c.play.TeamS2CPacket;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.scoreboard.number.BlankNumberFormat;
@@ -47,6 +46,7 @@ import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Hand;
 import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
@@ -57,7 +57,6 @@ import xyz.nucleoid.fantasy.RuntimeWorldConfig;
 import xyz.nucleoid.plasmid.api.game.GameActivity;
 import xyz.nucleoid.plasmid.api.game.GameCloseReason;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
-import xyz.nucleoid.plasmid.api.game.GameSpacePlayers;
 import xyz.nucleoid.plasmid.api.game.common.GlobalWidgets;
 import xyz.nucleoid.plasmid.api.game.common.widget.SidebarWidget;
 import xyz.nucleoid.plasmid.api.game.event.GameActivityEvents;
@@ -69,6 +68,7 @@ import xyz.nucleoid.plasmid.api.util.PlayerRef;
 import xyz.nucleoid.stimuli.event.EventResult;
 import xyz.nucleoid.stimuli.event.block.BlockRandomTickEvent;
 import xyz.nucleoid.stimuli.event.block.BlockUseEvent;
+import xyz.nucleoid.stimuli.event.entity.EntityUseEvent;
 import xyz.nucleoid.stimuli.event.player.PlayerDamageEvent;
 import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
 import xyz.nucleoid.stimuli.event.player.ReplacePlayerChatEvent;
@@ -89,7 +89,7 @@ public class SabotageActive {
     private final ServerWorld world;
     public final GameStatisticBundle stats;
     private final KarmaManager karmaManager;
-    private final TaskScheduler taskScheduler;
+    public final TaskScheduler taskScheduler;
     private boolean isTesterOnCooldown = false;
     private long startTime;
     private long endTime;
@@ -265,6 +265,43 @@ public class SabotageActive {
 
     }
 
+    private void applyTestingEffects(ServerPlayerEntity plr, boolean localSoundEffects) {
+        plr.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100));
+        plr.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 200));
+        plr.getWorld().spawnParticles(ParticleTypes.ANGRY_VILLAGER, plr.getX(), plr.getY(), plr.getZ(), 10, 0.5, 0.5 ,0.5, 1);
+        if (localSoundEffects) {
+            plr.playSound(SoundEvents.ITEM_ARMOR_EQUIP_IRON.value(), 1, 0.5f);
+            for (int i = 1; i <= 20; i++) {
+                int finalI = i;
+                taskScheduler.addTask(new Task((int) (world.getTime() + (10 * i)), (gameSpace) -> {
+                    plr.playSound(
+                            SoundEvents.BLOCK_NOTE_BLOCK_BASS.value(),
+                            1.0f,
+                            (float) Math.min((0.5 + (0.05 * finalI)), 1.4));
+                }));
+            }
+        }
+    }
+
+    // portable tester on dead bodies
+    public void testBody(ServerPlayerEntity plr, InteractionEntity interaction) {
+        BodyResult result = combatManager.getBodyRole(interaction);
+        if (result.plr() != null) {
+            applyTestingEffects(plr, true);
+            int revealTime = (int) world.getTime() + 200;
+            Consumer<GameSpace> func = (gameSpace) -> {
+                gameSpace.getPlayers().sendMessage(
+                        Text.translatable("sabotage.detective_shears_reveal",
+                                result.plr().getName(),
+                                Text.translatable("sabotage." + (
+                                        (result.role() == Roles.SABOTEUR) ? "saboteur" :
+                                                (result.role() == Roles.DETECTIVE) ? "detective" : "innocent")
+                                ).formatted(TeamManager.getRoleColor(result.role()))));
+            };
+            taskScheduler.addTask(new Task(revealTime, func));
+        }
+    }
+
     // portable tester only
     public void testEntity(ServerPlayerEntity plr, LivingEntity entity) {
         if (plr.isSpectator() || entity.isSpectator()) return;
@@ -272,26 +309,31 @@ public class SabotageActive {
             // either player is already testing or being tested, abort
             return;
         }
+
         Roles role = teamManager.getPlayerRole(plr);
         if (role == Roles.DETECTIVE) {
             if (entity.isPlayer()) {
-                final ServerPlayerEntity playerEntity = (ServerPlayerEntity) entity;
-                plr.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100));
-                plr.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 200));
-                playerEntity.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100));
-                playerEntity.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 200));
-                int revealTime = (int) world.getTime() + 200;
-                Consumer<GameSpace> func = (gameSpace) -> {
-                    Roles plrRole = teamManager.getPlayerRole(playerEntity);
-                    gameSpace.getPlayers().sendMessage(
-                            Text.translatable("sabotage.detective_shears_reveal",
-                                    playerEntity.getName(),
-                                    Text.translatable("sabotage." + (
-                                            (plrRole == Roles.SABOTEUR) ? "saboteur" :
-                                                    (plrRole == Roles.DETECTIVE) ? "detective" : "innocent")
-                                    ).formatted(TeamManager.getRoleColor(plrRole))));
-                };
-                taskScheduler.addTask(new Task(revealTime, func));
+                ItemCooldownManager manager = plr.getItemCooldownManager();
+                ItemStack heldStack = plr.getMainHandStack();
+                if (!manager.isCoolingDown(heldStack)) {
+                    manager.set(heldStack, 300);
+                    final ServerPlayerEntity playerEntity = (ServerPlayerEntity) entity;
+                    applyTestingEffects(plr, true);
+                    applyTestingEffects(playerEntity, true);
+                    int revealTime = (int) world.getTime() + 200;
+                    Consumer<GameSpace> func = (gameSpace) -> {
+                        Roles plrRole = teamManager.getPlayerRole(playerEntity);
+                        gameSpace.getPlayers().sendMessage(
+                                Text.translatable("sabotage.detective_shears_reveal",
+                                        playerEntity.getName(),
+                                        Text.translatable("sabotage." + (
+                                                (plrRole == Roles.SABOTEUR) ? "saboteur" :
+                                                        (plrRole == Roles.DETECTIVE) ? "detective" : "innocent")
+                                        ).formatted(TeamManager.getRoleColor(plrRole))));
+                    };
+                    taskScheduler.addTask(new Task(revealTime, func));
+                }
+
             }
         }
     }
@@ -305,8 +347,7 @@ public class SabotageActive {
             }
             isTesterOnCooldown = true;
             plr.teleport(pos.getX(), pos.getY(), pos.getZ(), true);
-            plr.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100));
-            plr.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 200));
+            applyTestingEffects(plr, false);
             for (BlockPos blockPos : map.getTesterCloseRegion().getBounds()) {
                 world.setBlockState(blockPos, Blocks.IRON_BARS.getDefaultState());
             }
@@ -409,6 +450,7 @@ public class SabotageActive {
             activity.listen(BlockRandomTickEvent.EVENT, (_block, _pos, _state) -> EventResult.DENY);
             activity.listen(ExplosionDetonatedEvent.EVENT, game::onExplosion);
             activity.listen(PlayerDamageEvent.EVENT, game::onDamage);
+            activity.listen(EntityUseEvent.EVENT, game::onEntityUse);
             map.setWorld(world);
             map.generateChests();
             PlayerSet plrs = game.gameSpace.getPlayers();
@@ -421,6 +463,19 @@ public class SabotageActive {
             }
 
         });
+    }
+
+    private EventResult onEntityUse(ServerPlayerEntity plr, Entity entity, Hand hand, EntityHitResult entityHitResult) {
+        ItemStack stack = plr.getStackInHand(hand);
+        if (stack.getItem() instanceof DetectiveShears shears) {
+            if (!plr.getItemCooldownManager().isCoolingDown(stack)) {
+                if (entity instanceof InteractionEntity interaction) {
+                    plr.getItemCooldownManager().set(stack, 300);
+                    testBody(plr, interaction);
+                }
+            }
+        }
+        return EventResult.PASS;
     }
 
     private EventResult onDamage(ServerPlayerEntity plr, DamageSource damageSource, float damageAmount) {
