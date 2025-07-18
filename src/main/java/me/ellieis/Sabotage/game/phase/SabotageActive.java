@@ -1,8 +1,6 @@
 package me.ellieis.Sabotage.game.phase;
 
 import com.google.common.collect.ImmutableSet;
-import eu.pb4.polymer.virtualentity.api.ElementHolder;
-import eu.pb4.polymer.virtualentity.api.elements.TextDisplayElement;
 import eu.pb4.sidebars.api.Sidebar;
 import me.ellieis.Sabotage.Sabotage;
 import me.ellieis.Sabotage.game.*;
@@ -15,9 +13,7 @@ import me.ellieis.Sabotage.game.map.SabotageMapBuilder;
 import me.ellieis.Sabotage.game.statistics.KarmaManager;
 import me.ellieis.Sabotage.game.utils.Task;
 import me.ellieis.Sabotage.game.utils.TaskScheduler;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
+import net.minecraft.block.*;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.TntEntity;
@@ -68,6 +64,7 @@ import xyz.nucleoid.plasmid.api.util.PlayerRef;
 import xyz.nucleoid.stimuli.event.EventResult;
 import xyz.nucleoid.stimuli.event.block.BlockRandomTickEvent;
 import xyz.nucleoid.stimuli.event.block.BlockUseEvent;
+import xyz.nucleoid.stimuli.event.block.FlowerPotModifyEvent;
 import xyz.nucleoid.stimuli.event.entity.EntityUseEvent;
 import xyz.nucleoid.stimuli.event.player.PlayerDamageEvent;
 import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
@@ -141,6 +138,21 @@ public class SabotageActive {
         activity.deny(GameRuleType.FIRE_TICK);
         activity.deny(GameRuleType.BREAK_BLOCKS);
         activity.deny(GameRuleType.CRAFTING);
+        activity.listen(BlockRandomTickEvent.EVENT, (_block, _pos, _state) -> EventResult.DENY);
+        activity.listen(FlowerPotModifyEvent.EVENT, ((_plr, _hand, _result) -> EventResult.DENY));
+        activity.listen(BlockUseEvent.EVENT, (plr, _hand, result) -> {
+            ServerWorld world = plr.getWorld();
+            Block block = world.getBlockState(result.getBlockPos()).getBlock();
+            // this is possibly the worst code i've written in my life
+            if (block instanceof AnvilBlock || block instanceof AbstractFurnaceBlock ||
+                    block instanceof StonecutterBlock || block instanceof ChiseledBookshelfBlock ||
+                    block instanceof BarrelBlock || block instanceof BedBlock ||
+                    block instanceof GrindstoneBlock || block instanceof CraftingTableBlock
+            ) {
+               return EventResult.DENY.asActionResult();
+            }
+            return EventResult.PASS.asActionResult();
+        });
     }
 
     private static String getPlayerNamesInSet(PlayerSet plrs) {
@@ -447,7 +459,6 @@ public class SabotageActive {
             activity.listen(GamePlayerEvents.ACCEPT, game::onAccept);
             activity.listen(GameActivityEvents.DESTROY, game::onDestroy);
             activity.listen(BlockUseEvent.EVENT, game::onBlockUse);
-            activity.listen(BlockRandomTickEvent.EVENT, (_block, _pos, _state) -> EventResult.DENY);
             activity.listen(ExplosionDetonatedEvent.EVENT, game::onExplosion);
             activity.listen(PlayerDamageEvent.EVENT, game::onDamage);
             activity.listen(EntityUseEvent.EVENT, game::onEntityUse);

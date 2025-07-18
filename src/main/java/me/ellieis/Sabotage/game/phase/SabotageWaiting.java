@@ -17,8 +17,10 @@ import xyz.nucleoid.plasmid.api.game.player.JoinAcceptorResult;
 import xyz.nucleoid.plasmid.api.game.player.JoinOffer;
 import xyz.nucleoid.plasmid.api.game.rule.GameRuleType;
 import xyz.nucleoid.stimuli.event.EventResult;
+import xyz.nucleoid.stimuli.event.block.BlockBreakEvent;
 import xyz.nucleoid.stimuli.event.block.BlockRandomTickEvent;
 import xyz.nucleoid.stimuli.event.entity.EntityDamageEvent;
+import xyz.nucleoid.stimuli.event.player.PlayerAttackEntityEvent;
 
 public class SabotageWaiting {
     private final SabotageConfig config;
@@ -63,6 +65,7 @@ public class SabotageWaiting {
             activity.listen(GamePlayerEvents.OFFER, JoinOffer::accept);
             activity.listen(GamePlayerEvents.ACCEPT, game::acceptPlayer);
             activity.listen(GameActivityEvents.REQUEST_START, game::requestStart);
+            activity.listen(PlayerAttackEntityEvent.EVENT, (_plr, _hand, _entity, _result) -> EventResult.DENY);
             activity.listen(BlockRandomTickEvent.EVENT, (_block, _pos, _state) -> EventResult.DENY);
         });
     }
