@@ -455,6 +455,7 @@ public class SabotageActive {
             activity.listen(GameActivityEvents.TICK, () -> game.onTick(gameSpace.getPlayers()));
             activity.listen(PlayerDeathEvent.EVENT, game::onDeath);
             activity.listen(ReplacePlayerChatEvent.EVENT, game::onChat);
+            activity.listen(GamePlayerEvents.JOIN, game::onPlayerJoin);
             activity.listen(GamePlayerEvents.REMOVE, game::onPlayerRemove);
             activity.listen(GamePlayerEvents.OFFER, JoinOffer::accept);
             activity.listen(GamePlayerEvents.ACCEPT, game::onAccept);
@@ -475,6 +476,10 @@ public class SabotageActive {
             }
 
         });
+    }
+
+    private void onPlayerJoin(ServerPlayerEntity plr) {
+        combatManager.spawnBodiesForPlayer(plr);
     }
 
     private EventResult onEntityUse(ServerPlayerEntity plr, Entity entity, Hand hand, EntityHitResult entityHitResult) {

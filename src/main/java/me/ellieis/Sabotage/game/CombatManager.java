@@ -15,7 +15,9 @@ import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.decoration.InteractionEntity;
+import net.minecraft.entity.player.PlayerModelPart;
 import net.minecraft.network.packet.s2c.play.*;
+import net.minecraft.server.network.ServerPlayNetworkHandler;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundEvents;
@@ -38,9 +40,9 @@ record CombatLog(ServerPlayerEntity attacker, float damage, long timeOfAttack) {
 
 }
 
-record BodyData(Roles role, List<InteractionEntity> hitboxes) {
-    public BodyData(Roles role) {
-        this(role, new ArrayList<>());
+record BodyData(Roles role, List<InteractionEntity > hitboxes, FakePlayer fakePlr) {
+    public BodyData(Roles role, FakePlayer fakePlr) {
+        this(role, new ArrayList<>(), fakePlr);
     }
 }
 
@@ -242,11 +244,10 @@ public class CombatManager {
         FakePlayer fakePlr = FakePlayer.get(world, profile);
         PlayerSet plrs = gameSpace.getPlayers();
         plrs.sendPacket(PlayerListS2CPacket.entryFromPlayer(List.of(fakePlr)));
-
         plrs.sendPacket(new EntitySpawnS2CPacket(fakePlr.getId(), fakePlr.getUuid(), plr.getX(), plr.getY(), plr.getZ(), 0, 0, EntityType.PLAYER,0, Vec3d.ZERO, 0));
         fakePlr.setPose(EntityPose.SLEEPING);
         // body always occupies current x, x - 1 and possibly x - 2
-        BodyData bodyData = new BodyData(plrRole);
+        BodyData bodyData = new BodyData(plrRole, fakePlr);
         List<InteractionEntity> entities = bodyData.hitboxes();
         for (int i = 0; i <= 2; i++) {
             InteractionEntity interaction = new InteractionEntity(EntityType.INTERACTION, world);
@@ -259,7 +260,24 @@ public class CombatManager {
 
         plrs.sendPacket(new EntityTrackerUpdateS2CPacket(fakePlr.getId(), fakePlr.getDataTracker().getChangedEntries()));
         // delay removal so players can load the skin
-        game.taskScheduler.addTask(new Task((int) (gameSpace.getTime() + 200), (_gameSpace) ->  plr.networkHandler.sendPacket(new PlayerRemoveS2CPacket(List.of(fakePlr.getUuid())))));
+        plrs.sendPacket(new PlayerRemoveS2CPacket(List.of(fakePlr.getUuid())));
+       // game.taskScheduler.addTask(new Task((int) (gameSpace.getTime() + 200), (_gameSpace) ->  plrs.sendPacket(new PlayerRemoveS2CPacket(List.of(fakePlr.getUuid())))));
+    }
+
+    public void spawnBodiesForPlayer(ServerPlayerEntity plr) {
+        bodies.forEach((plrBody, bodyData) -> spawnBodyForPlayer(plrBody, plr));
+    }
+
+    private void spawnBodyForPlayer(ServerPlayerEntity body, ServerPlayerEntity plr) {
+        BodyData data = bodies.get(body);
+        if (data != null) {
+            ServerPlayNetworkHandler handler = plr.networkHandler;
+            FakePlayer fakePlr = data.fakePlr();
+            handler.sendPacket(PlayerListS2CPacket.entryFromPlayer(List.of(fakePlr)));
+            handler.sendPacket(new EntitySpawnS2CPacket(fakePlr.getId(), fakePlr.getUuid(), plr.getX(), plr.getY(), plr.getZ(), 0, 0, EntityType.PLAYER,0, Vec3d.ZERO, 0));
+            handler.sendPacket(new EntityTrackerUpdateS2CPacket(fakePlr.getId(), fakePlr.getDataTracker().getChangedEntries()));
+            handler.sendPacket(new PlayerRemoveS2CPacket(List.of(fakePlr.getUuid())));
+        }
     }
 
     public BodyResult getBodyRole(InteractionEntity entity) {
