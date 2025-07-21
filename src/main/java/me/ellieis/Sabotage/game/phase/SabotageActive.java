@@ -564,10 +564,10 @@ public class SabotageActive {
     }
 
     private boolean onChat(ServerPlayerEntity plr, SignedMessage signedMessage, MessageType.Parameters parameters) {
-        if (teamManager.getPlayerRole(plr) != Roles.NONE) {
-            chatManager.onChat(plr, signedMessage.getContent());
-        }
         if (gameState == GameStates.ACTIVE) {
+            if (teamManager.getPlayerRole(plr) != Roles.NONE) {
+                chatManager.onChat(plr, signedMessage.getContent());
+            }
             if (plr.isSpectator()) {
                 teamManager.dead.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.GRAY).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
             }

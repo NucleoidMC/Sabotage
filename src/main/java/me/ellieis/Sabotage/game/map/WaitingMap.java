@@ -33,7 +33,7 @@ public class WaitingMap {
 
     public void spawnPlayer(ServerWorld world, ServerPlayerEntity plr) {
         TemplateRegion spawn = spawns.get(new Random().nextInt(spawns.size()));
-        Vec3d pos = spawn.getBounds().sampleBlock(net.minecraft.util.math.random.Random.create()).toCenterPos();
+        Vec3d pos = spawn.getBounds().centerBottom();
         plr.teleport(world, pos.getX(), pos.getY(), pos.getZ(), new HashSet<>(), spawn.getData().getFloat("Rotation", 0f), 0, true);
         plr.setOnGround(true);
         plr.setVelocity(0,0,0);
