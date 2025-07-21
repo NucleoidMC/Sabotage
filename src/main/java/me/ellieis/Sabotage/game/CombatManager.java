@@ -259,9 +259,6 @@ public class CombatManager {
         bodies.put(plr, bodyData);
 
         plrs.sendPacket(new EntityTrackerUpdateS2CPacket(fakePlr.getId(), fakePlr.getDataTracker().getChangedEntries()));
-        // delay removal so players can load the skin
-        plrs.sendPacket(new PlayerRemoveS2CPacket(List.of(fakePlr.getUuid())));
-       // game.taskScheduler.addTask(new Task((int) (gameSpace.getTime() + 200), (_gameSpace) ->  plrs.sendPacket(new PlayerRemoveS2CPacket(List.of(fakePlr.getUuid())))));
     }
 
     public void spawnBodiesForPlayer(ServerPlayerEntity plr) {
@@ -276,8 +273,11 @@ public class CombatManager {
             handler.sendPacket(PlayerListS2CPacket.entryFromPlayer(List.of(fakePlr)));
             handler.sendPacket(new EntitySpawnS2CPacket(fakePlr.getId(), fakePlr.getUuid(), plr.getX(), plr.getY(), plr.getZ(), 0, 0, EntityType.PLAYER,0, Vec3d.ZERO, 0));
             handler.sendPacket(new EntityTrackerUpdateS2CPacket(fakePlr.getId(), fakePlr.getDataTracker().getChangedEntries()));
-            handler.sendPacket(new PlayerRemoveS2CPacket(List.of(fakePlr.getUuid())));
         }
+    }
+
+    public void onPlayerLeave(ServerPlayerEntity plr) {
+        bodies.forEach((_body, bodyData) -> plr.networkHandler.sendPacket(new PlayerRemoveS2CPacket(List.of(bodyData.fakePlr().getUuid()))));
     }
 
     public BodyResult getBodyRole(InteractionEntity entity) {

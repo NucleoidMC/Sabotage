@@ -627,6 +627,7 @@ public class SabotageActive {
             teamManager.dead.remove(plr);
         }
         globalSidebar.removePlayer(plr);
+        combatManager.onPlayerLeave(plr);
         // get around alive check by doing this
         plr.changeGameMode(GameMode.SPECTATOR);
         if (gameState != GameStates.ENDED) {
