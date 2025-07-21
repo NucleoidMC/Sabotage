@@ -34,4 +34,10 @@ public class TaskScheduler {
             }
         }
     }
+
+    public void onGameEnd() {
+        for (Task task : tasks) {
+            task.task().accept(gameSpace);
+        }
+    }
 }

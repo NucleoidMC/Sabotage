@@ -413,6 +413,7 @@ public class SabotageActive {
         if (endReason == EndReason.NONE) return;
         if (gameState == GameStates.ENDED) return;
         PlayerSet plrs = gameSpace.getPlayers();
+        taskScheduler.onGameEnd();
         endTime = world.getTime();
         gameState = GameStates.ENDED;
         rules(activity);
