@@ -584,7 +584,7 @@ public class SabotageActive {
         if (result != EventResult.PASS) {
             return result;
         }
-
+        plr.getInventory().dropAll();
         EndReason endReason = checkWinCondition();
         if (endReason != EndReason.NONE) {
             End(endReason);
