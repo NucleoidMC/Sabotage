@@ -1,5 +1,9 @@
 {
   "gameType.sabotage.sabotage": "Sabotage",
+  "game.sabotage.hellbound": "Sabotage: Hellbound",
+  "game.sabotage.skybound": "Sabotage: Skybound",
+  "game.sabotage.town": "Sabotage: Town",
+  "game.sabotage.village": "Sabotage: Village",
   "block.sabotage.sabotage_chest": "Sabotage Chest",
   "block.sabotage.tester_wool": "Tester Wool",
   "block.sabotage.tester_sign": "Tester Sign",

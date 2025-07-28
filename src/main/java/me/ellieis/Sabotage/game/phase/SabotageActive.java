@@ -37,6 +37,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
+import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Formatting;
@@ -228,11 +229,12 @@ public class SabotageActive {
     }
 
     public void setSidebars() {
-        saboteurSidebar = widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
+        MutableText title = Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD);
+        saboteurSidebar = widgets.addSidebar(title);
         saboteurSidebar.setPriority(Sidebar.Priority.MEDIUM);
-        detectiveSidebar = widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
+        detectiveSidebar = widgets.addSidebar(title);
         detectiveSidebar.setPriority(Sidebar.Priority.MEDIUM);
-        innocentSidebar = widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
+        innocentSidebar = widgets.addSidebar(title);
         innocentSidebar.setPriority(Sidebar.Priority.MEDIUM);
 
         updateSidebars();
