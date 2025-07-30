@@ -11,10 +11,10 @@ import xyz.nucleoid.plasmid.api.game.GameOpenException;
 import java.io.IOException;
 
 public class SabotageMapBuilder {
-    public static SabotageMap buildActive(MinecraftServer server, Identifier identifier, SabotageConfig config) {
+    public static SabotageMap buildActive(MinecraftServer server, Identifier identifier, SabotageConfig config, int playerCount) {
         try {
             MapTemplate template = MapTemplateSerializer.loadFromResource(server, identifier);
-            return new SabotageMap(template, config);
+            return new SabotageMap(template, config, playerCount);
         } catch(IOException exception) {
             throw new GameOpenException(Text.literal("Failed to load map " + identifier), exception);
         }

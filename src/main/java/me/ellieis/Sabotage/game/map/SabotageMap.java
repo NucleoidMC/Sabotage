@@ -25,7 +25,6 @@ import xyz.nucleoid.plasmid.api.util.PlayerRef;
 import java.util.*;
 
 import static me.ellieis.Sabotage.game.custom.SabotageBlocks.SABOTAGE_CHEST;
-record ChestInfo(BlockPos pos, Direction direction) { }
 
 public class SabotageMap {
     private final SabotageConfig config;
@@ -35,13 +34,15 @@ public class SabotageMap {
     private final List<BlockPos> testerWools = new ArrayList<>();
     private final List<ChestInfo> chestSpawns = new ArrayList<>();
     private final Map<PlayerRef, Vec3d> playerSpawnPos = new HashMap<>();
+    private final int playerCount;
     private ServerWorld world;
 
-    public SabotageMap(MapTemplate template, SabotageConfig config) {
+    public SabotageMap(MapTemplate template, SabotageConfig config, int playerCount) {
         this.config = config;
         this.template = template;
         this.spawns = template.getMetadata().getRegions("spawn").toList();
         this.testerCloseRegion = template.getMetadata().getFirstRegion("tester_close_region");
+        this.playerCount = playerCount;
 
         if (this.spawns.isEmpty()) {
             throw new GameOpenException(Text.literal("Failed to load spawns, as there aren't any."));
@@ -72,7 +73,7 @@ public class SabotageMap {
         Collections.shuffle(chestSpawns);
 
         // Make sure that the chest count doesn't go over the amount of chest positions
-        int chestCount = Math.min(config.chestCount(), chestSpawns.size());
+        int chestCount = Math.min(15 * playerCount, chestSpawns.size());
         for (ChestInfo chestInfo : chestSpawns) {
             if (chestCount > 0) {
                 chestCount--;
@@ -114,4 +115,7 @@ public class SabotageMap {
     public ChunkGenerator asChunkGenerator(MinecraftServer server) {
         return new TemplateChunkGenerator(server, this.template);
     }
+
+    record ChestInfo(BlockPos pos, Direction direction) { }
+
 }

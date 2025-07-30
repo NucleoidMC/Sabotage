@@ -14,8 +14,6 @@ import xyz.nucleoid.plasmid.api.game.GameSpace;
 
 import java.util.*;
 
-record messageInfo(DisplayEntity.TextDisplayEntity entity, int spawnTime) {
-}
 public class ChatManager {
     GameSpace gameSpace;
     SabotageConfig config;
@@ -100,5 +98,8 @@ public class ChatManager {
                 entry.getValue().remove(info);
             }
         }
+    }
+
+    record messageInfo(DisplayEntity.TextDisplayEntity entity, int spawnTime) {
     }
 }

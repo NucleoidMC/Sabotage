@@ -36,16 +36,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
-record CombatLog(ServerPlayerEntity attacker, float damage, long timeOfAttack) {
-
-}
-
-record BodyData(Roles role, List<InteractionEntity > hitboxes, FakePlayer fakePlr) {
-    public BodyData(Roles role, FakePlayer fakePlr) {
-        this(role, new ArrayList<>(), fakePlr);
-    }
-}
-
 public class CombatManager {
     GameSpace gameSpace;
     KarmaManager karmaManager;
@@ -293,5 +283,15 @@ public class CombatManager {
             }
         });
         return new BodyResult(plrAtom.get(), role.get());
+    }
+
+    record CombatLog(ServerPlayerEntity attacker, float damage, long timeOfAttack) {
+
+    }
+
+    record BodyData(Roles role, List<InteractionEntity > hitboxes, FakePlayer fakePlr) {
+        public BodyData(Roles role, FakePlayer fakePlr) {
+            this(role, new ArrayList<>(), fakePlr);
+        }
     }
 }

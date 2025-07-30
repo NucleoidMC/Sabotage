@@ -172,7 +172,7 @@ public class SabotageActive {
     }
 
     public PlayerSet getAlivePlayers() {
-        MutablePlayerSet plrs = gameSpace.getPlayers().copy(gameSpace.getServer());
+        MutablePlayerSet plrs = gameSpace.getPlayers().participants().copy(gameSpace.getServer());
         plrs.forEach(plr -> {
             if (plr.isSpectator() || teamManager.dead.contains(plr)) {
                 plrs.remove(plr);
@@ -436,10 +436,10 @@ public class SabotageActive {
         } else if (endReason == EndReason.TIMEOUT) {
             plrs.sendMessage(Text.translatable("sabotage.game_end.none"));
         }
-        gameSpace.getPlayers().playSound(SoundEvents.ENTITY_PLAYER_LEVELUP);
+        plrs.playSound(SoundEvents.ENTITY_PLAYER_LEVELUP);
     }
     public static void Open(GameSpace gameSpace, SabotageConfig config) {
-        SabotageMap map = SabotageMapBuilder.buildActive(gameSpace.getServer(), config.map(), config);
+        SabotageMap map = SabotageMapBuilder.buildActive(gameSpace.getServer(), config.map(), config, gameSpace.getPlayers().participants().size());
         RuntimeWorldConfig worldConfig = new RuntimeWorldConfig()
                 .setGenerator(map.asChunkGenerator(gameSpace.getServer()))
                 .setDimensionType(RegistryKey.of(RegistryKeys.DIMENSION_TYPE, config.dimension()))
