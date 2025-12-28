@@ -52,14 +52,14 @@ public class ChatManager {
     }
 
     private void proximityTextChat(ServerPlayerEntity plr, Text message) {
-        DisplayEntity.TextDisplayEntity entity = new DisplayEntity.TextDisplayEntity(EntityType.TEXT_DISPLAY, plr.getWorld());
+        DisplayEntity.TextDisplayEntity entity = new DisplayEntity.TextDisplayEntity(EntityType.TEXT_DISPLAY, plr.getEntityWorld());
         entity.setBillboardMode(DisplayEntity.BillboardMode.CENTER);
         entity.setText(message);
         entity.setLineWidth(100);
         entity.setInterpolationDuration(1);
-        plr.getWorld().spawnEntity(entity);
+        plr.getEntityWorld().spawnEntity(entity);
         ArrayList<messageInfo> entities = messages.get(plr);
-        entities.add(new messageInfo(entity,(int) plr.getWorld().getTime()));
+        entities.add(new messageInfo(entity,(int) plr.getEntityWorld().getTime()));
         int i = 0;
         for (messageInfo info : entities) {
             positionLabel(plr, info, i);
@@ -69,9 +69,9 @@ public class ChatManager {
         }
     }
     private void positionLabel(ServerPlayerEntity plr, messageInfo info, int i) {
-        Vec3d pos = plr.getPos();
+        Vec3d pos = plr.getEntityPos();
         info.entity().setTeleportDuration(1);
-        info.entity().teleportTo(new TeleportTarget((ServerWorld) plr.getWorld(),
+        info.entity().teleportTo(new TeleportTarget((ServerWorld) plr.getEntityWorld(),
                 pos.add(0, 2.5 + (i * 0.25), 0),
                 plr.getVelocity(),
                 0,
@@ -87,7 +87,7 @@ public class ChatManager {
                 ServerPlayerEntity plr = entry.getKey();
                 positionLabel(plr, info, i);
                 int textLength = info.entity().getText().getString().length();
-                if ((plr.getWorld().getTime() - info.spawnTime()) >= 100 + textLength * 1.5) {
+                if ((plr.getEntityWorld().getTime() - info.spawnTime()) >= 100 + textLength * 1.5) {
                     info.entity().remove(Entity.RemovalReason.KILLED);
                     messagesToRemove.add(info);
                 }

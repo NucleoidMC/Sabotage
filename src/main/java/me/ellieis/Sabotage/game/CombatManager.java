@@ -226,10 +226,10 @@ public class CombatManager {
         GameProfile profile = new GameProfile(UUID.randomUUID(), name);
 
         // can be empty in offline mode
-        List<Property> propertyList = originalProfile.getProperties().get("textures").stream().toList();
+        List<Property> propertyList = originalProfile.properties().get("textures").stream().toList();
         if (!propertyList.isEmpty()) {
             Property property = propertyList.getFirst();
-            profile.getProperties().put("textures", new Property("textures", property.value(), property.signature()));
+            profile.properties().put("textures", new Property("textures", property.value(), property.signature()));
         }
         FakePlayer fakePlr = FakePlayer.get(world, profile);
         PlayerSet plrs = gameSpace.getPlayers();
@@ -242,7 +242,7 @@ public class CombatManager {
         for (int i = 0; i <= 2; i++) {
             InteractionEntity interaction = new InteractionEntity(EntityType.INTERACTION, world);
             interaction.setInteractionHeight(0.4f);
-            interaction.setPosition(plr.getPos().subtract(i, 0, 0));
+            interaction.setPosition(plr.getEntityPos().subtract(i, 0, 0));
             entities.add(interaction);
             world.spawnEntity(interaction);
         }

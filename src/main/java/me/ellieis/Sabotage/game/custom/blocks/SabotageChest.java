@@ -116,7 +116,7 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
         return stack;
     }
     public SabotageChest(Settings settings) {
-        super(() -> SABOTAGE_CHEST_ENTITY, settings);
+        super(() -> SABOTAGE_CHEST_ENTITY, SoundEvents.BLOCK_CHEST_OPEN, SoundEvents.BLOCK_CHEST_CLOSE, settings);
     }
 
     @Override

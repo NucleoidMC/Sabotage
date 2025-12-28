@@ -7,7 +7,7 @@ import me.ellieis.Sabotage.game.phase.SabotageActive;
 import me.ellieis.Sabotage.game.phase.SabotageWaiting;
 import net.fabricmc.api.ModInitializer;
 import net.minecraft.util.Identifier;
-import xyz.nucleoid.plasmid.api.game.GameType;
+import xyz.nucleoid.plasmid.api.game.GameTypes;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +20,7 @@ public class Sabotage implements ModInitializer {
 	public void onInitialize() {
 		SabotageBlocks.register();
 		SabotageItems.register();
-		GameType.register(Sabotage.identifier("sabotage"), SabotageConfig.CODEC, SabotageWaiting::Open);
+        GameTypes.register(Sabotage.identifier("sabotage"), SabotageConfig.CODEC, SabotageWaiting::Open);
 	}
 
 	public static Identifier identifier(String value) {

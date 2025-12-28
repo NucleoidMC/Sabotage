@@ -47,7 +47,7 @@ import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
-import net.minecraft.world.GameRules;
+import net.minecraft.world.rule.GameRules;
 import net.minecraft.world.World;
 import net.minecraft.world.explosion.Explosion;
 import xyz.nucleoid.fantasy.RuntimeWorldConfig;
@@ -142,7 +142,7 @@ public class SabotageActive {
         activity.listen(BlockRandomTickEvent.EVENT, (_block, _pos, _state) -> EventResult.DENY);
         activity.listen(FlowerPotModifyEvent.EVENT, ((_plr, _hand, _result) -> EventResult.DENY));
         activity.listen(BlockUseEvent.EVENT, (plr, _hand, result) -> {
-            ServerWorld world = plr.getWorld();
+            ServerWorld world = plr.getEntityWorld();
             Block block = world.getBlockState(result.getBlockPos()).getBlock();
             // this is possibly the worst code i've written in my life
             if (block instanceof AnvilBlock || block instanceof AbstractFurnaceBlock ||
@@ -282,7 +282,7 @@ public class SabotageActive {
     private void applyTestingEffects(ServerPlayerEntity plr, boolean localSoundEffects) {
         plr.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100));
         plr.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 200));
-        plr.getWorld().spawnParticles(ParticleTypes.ANGRY_VILLAGER, plr.getX(), plr.getY(), plr.getZ(), 10, 0.5, 0.5 ,0.5, 1);
+        plr.getEntityWorld().spawnParticles(ParticleTypes.ANGRY_VILLAGER, plr.getX(), plr.getY(), plr.getZ(), 10, 0.5, 0.5 ,0.5, 1);
         if (localSoundEffects) {
             plr.playSound(SoundEvents.ITEM_ARMOR_EQUIP_IRON.value(), 1, 0.5f);
             for (int i = 1; i <= 20; i++) {
@@ -452,7 +452,7 @@ public class SabotageActive {
             game.globalSidebar = game.widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
             game.globalSidebar.setPriority(Sidebar.Priority.LOW);
             game.globalSidebar.addLines(Text.translatable("sabotage.sidebar.countdown"));
-            world.getGameRules().get(GameRules.LOCATOR_BAR).set(false, gameSpace.getServer());
+            world.getGameRules().setValue(GameRules.LOCATOR_BAR, false, gameSpace.getServer());
             rules(activity);
             activity.listen(GameActivityEvents.TICK, () -> game.onTick(gameSpace.getPlayers()));
             activity.listen(PlayerDeathEvent.EVENT, game::onDeath);
@@ -507,7 +507,7 @@ public class SabotageActive {
         // TNT ignites on place
         if (item.isOf(Items.TNT)) {
             BlockPos pos = blockHitResult.getBlockPos().offset(blockHitResult.getSide());;
-            World world = player.getWorld();
+            World world = player.getEntityWorld();
             if (world.getBlockState(pos).getBlock() == Blocks.AIR) {
                 world.spawnEntity(new TntEntity(world, pos.getX(), pos.getY(), pos.getZ(), player));
                 item.decrement(1);
@@ -652,7 +652,7 @@ public class SabotageActive {
             Set<PositionFlag> flags = ImmutableSet.of(PositionFlag.X_ROT, PositionFlag.Y_ROT);
 
             // Teleport without changing the pitch and yaw
-            plr.teleport(plr.getWorld(), pos.getX(), pos.getY(), pos.getZ(), flags, 0, 0, false);
+            plr.teleport(plr.getEntityWorld(), pos.getX(), pos.getY(), pos.getZ(), flags, 0, 0, false);
         }
     }
     public void onTick(PlayerSet plrs) {
