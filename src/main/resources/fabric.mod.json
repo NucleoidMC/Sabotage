@@ -14,6 +14,9 @@
 	"license": "LGPL-3.0",
 	"icon": "assets/sabotage/icon.png",
 	"environment": "*",
+    "mixins": [
+      "sabotage.mixins.json"
+    ],
 	"entrypoints": {
 		"main": [
 			"me.ellieis.Sabotage.Sabotage"

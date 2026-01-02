@@ -1,39 +1,32 @@
 package me.ellieis.Sabotage.game;
 
-import com.mojang.authlib.GameProfile;
-import com.mojang.authlib.properties.Property;
 import me.ellieis.Sabotage.game.config.DetectiveConfig;
 import me.ellieis.Sabotage.game.config.InnocentConfig;
 import me.ellieis.Sabotage.game.config.SabotageConfig;
 import me.ellieis.Sabotage.game.config.SaboteurConfig;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
 import me.ellieis.Sabotage.game.statistics.KarmaManager;
-import me.ellieis.Sabotage.game.utils.Task;
-import net.fabricmc.fabric.api.entity.FakePlayer;
+import me.ellieis.Sabotage.mixin.MannequinEntityAccessor;
+import net.minecraft.component.type.ProfileComponent;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityPose;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.decoration.InteractionEntity;
-import net.minecraft.entity.player.PlayerModelPart;
+import net.minecraft.entity.decoration.MannequinEntity;
 import net.minecraft.network.packet.s2c.play.*;
-import net.minecraft.server.network.ServerPlayNetworkHandler;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
-import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.GameMode;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
 import xyz.nucleoid.plasmid.api.game.GameSpacePlayers;
-import xyz.nucleoid.plasmid.api.game.player.PlayerSet;
 import xyz.nucleoid.stimuli.event.EventResult;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class CombatManager {
@@ -216,72 +209,27 @@ public class CombatManager {
     }
 
     private void createPlayerBody(ServerPlayerEntity plr, ServerWorld world, Roles plrRole) {
-        GameProfile originalProfile = plr.getGameProfile();
-        String name;
-        if (plr.getDisplayName() != null) {
-            name = plr.getDisplayName().getString();
-        } else {
-            name = plr.getName().getString();
-        }
-        GameProfile profile = new GameProfile(UUID.randomUUID(), name);
-
-        // can be empty in offline mode
-        List<Property> propertyList = originalProfile.properties().get("textures").stream().toList();
-        if (!propertyList.isEmpty()) {
-            Property property = propertyList.getFirst();
-            profile.properties().put("textures", new Property("textures", property.value(), property.signature()));
-        }
-        FakePlayer fakePlr = FakePlayer.get(world, profile);
-        PlayerSet plrs = gameSpace.getPlayers();
-        plrs.sendPacket(PlayerListS2CPacket.entryFromPlayer(List.of(fakePlr)));
-        plrs.sendPacket(new EntitySpawnS2CPacket(fakePlr.getId(), fakePlr.getUuid(), plr.getX(), plr.getY(), plr.getZ(), 0, 0, EntityType.PLAYER,0, Vec3d.ZERO, 0));
-        fakePlr.setPose(EntityPose.SLEEPING);
-        // body always occupies current x, x - 1 and possibly x - 2
-        BodyData bodyData = new BodyData(plrRole, fakePlr);
-        List<InteractionEntity> entities = bodyData.hitboxes();
-        for (int i = 0; i <= 2; i++) {
-            InteractionEntity interaction = new InteractionEntity(EntityType.INTERACTION, world);
-            interaction.setInteractionHeight(0.4f);
-            interaction.setPosition(plr.getEntityPos().subtract(i, 0, 0));
-            entities.add(interaction);
-            world.spawnEntity(interaction);
-        }
+        MannequinEntity mannequin = new MannequinEntity(EntityType.MANNEQUIN, world);
+        ((MannequinEntityAccessor) mannequin).sabotage$setMannequinProfile(ProfileComponent.ofDynamic(plr.getUuid()));
+        mannequin.setPos(plr.getX(), plr.getY(), plr.getZ());
+        mannequin.setPose(EntityPose.SLEEPING);
+        BodyData bodyData = new BodyData(plrRole, mannequin);
+        world.spawnEntity(mannequin);
         bodies.put(plr, bodyData);
 
-        plrs.sendPacket(new EntityTrackerUpdateS2CPacket(fakePlr.getId(), fakePlr.getDataTracker().getChangedEntries()));
     }
 
-    public void spawnBodiesForPlayer(ServerPlayerEntity plr) {
-        bodies.forEach((plrBody, bodyData) -> spawnBodyForPlayer(plrBody, plr));
-    }
-
-    private void spawnBodyForPlayer(ServerPlayerEntity body, ServerPlayerEntity plr) {
-        BodyData data = bodies.get(body);
-        if (data != null) {
-            ServerPlayNetworkHandler handler = plr.networkHandler;
-            FakePlayer fakePlr = data.fakePlr();
-            handler.sendPacket(PlayerListS2CPacket.entryFromPlayer(List.of(fakePlr)));
-            handler.sendPacket(new EntitySpawnS2CPacket(fakePlr.getId(), fakePlr.getUuid(), plr.getX(), plr.getY(), plr.getZ(), 0, 0, EntityType.PLAYER,0, Vec3d.ZERO, 0));
-            handler.sendPacket(new EntityTrackerUpdateS2CPacket(fakePlr.getId(), fakePlr.getDataTracker().getChangedEntries()));
-        }
-    }
-
-    public void onPlayerLeave(ServerPlayerEntity plr) {
-        bodies.forEach((_body, bodyData) -> plr.networkHandler.sendPacket(new PlayerRemoveS2CPacket(List.of(bodyData.fakePlr().getUuid()))));
-    }
-
-    public BodyResult getBodyRole(InteractionEntity entity) {
+    public BodyResult getBodyRole(LivingEntity entity) {
         AtomicReference<Roles> role = new AtomicReference<>(Roles.NONE);
         AtomicReference<ServerPlayerEntity> plrAtom = new AtomicReference<>();
-        bodies.forEach((plr, bodyData) -> {
-            for (InteractionEntity hitbox : bodyData.hitboxes()) {
-                if (entity.getBlockPos().equals(hitbox.getBlockPos())) {
+        if (entity instanceof MannequinEntity) {
+            bodies.forEach((plr, bodyData) -> {
+                if (bodyData.mannequin().equals(entity)) {
                     role.set(bodyData.role());
                     plrAtom.set(plr);
-                    break;
                 }
-            }
-        });
+            });
+        }
         return new BodyResult(plrAtom.get(), role.get());
     }
 
@@ -289,9 +237,6 @@ public class CombatManager {
 
     }
 
-    record BodyData(Roles role, List<InteractionEntity > hitboxes, FakePlayer fakePlr) {
-        public BodyData(Roles role, FakePlayer fakePlr) {
-            this(role, new ArrayList<>(), fakePlr);
-        }
+    record BodyData(Roles role, MannequinEntity mannequin) {
     }
 }

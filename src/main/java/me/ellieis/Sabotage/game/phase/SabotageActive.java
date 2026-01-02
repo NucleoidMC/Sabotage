@@ -18,7 +18,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.TntEntity;
 import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.decoration.InteractionEntity;
+import net.minecraft.entity.decoration.MannequinEntity;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.ItemCooldownManager;
@@ -298,8 +298,8 @@ public class SabotageActive {
     }
 
     // portable tester on dead bodies
-    public void testBody(ServerPlayerEntity plr, InteractionEntity interaction) {
-        BodyResult result = combatManager.getBodyRole(interaction);
+    public void testBody(ServerPlayerEntity plr, LivingEntity entity) {
+        BodyResult result = combatManager.getBodyRole(entity);
         if (result.plr() != null) {
             applyTestingEffects(plr, true);
             int revealTime = (int) world.getTime() + 200;
@@ -481,16 +481,15 @@ public class SabotageActive {
     }
 
     private void onPlayerJoin(ServerPlayerEntity plr) {
-        combatManager.spawnBodiesForPlayer(plr);
     }
 
     private EventResult onEntityUse(ServerPlayerEntity plr, Entity entity, Hand hand, EntityHitResult entityHitResult) {
         ItemStack stack = plr.getStackInHand(hand);
         if (stack.getItem() instanceof DetectiveShears shears) {
             if (!plr.getItemCooldownManager().isCoolingDown(stack)) {
-                if (entity instanceof InteractionEntity interaction) {
+                if (entity instanceof MannequinEntity mannequin) {
                     plr.getItemCooldownManager().set(stack, 300);
-                    testBody(plr, interaction);
+                    testBody(plr, mannequin);
                 }
             }
         }
@@ -629,7 +628,7 @@ public class SabotageActive {
             teamManager.dead.remove(plr);
         }
         globalSidebar.removePlayer(plr);
-        combatManager.onPlayerLeave(plr);
+        //combatManager.onPlayerLeave(plr);
         // get around alive check by doing this
         plr.changeGameMode(GameMode.SPECTATOR);
         if (gameState != GameStates.ENDED) {
