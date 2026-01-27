@@ -8,6 +8,7 @@ import me.ellieis.Sabotage.game.config.SabotageConfig;
 import me.ellieis.Sabotage.game.custom.blocks.TesterSign;
 import me.ellieis.Sabotage.game.custom.blocks.WallTesterSign;
 import me.ellieis.Sabotage.game.custom.items.DetectiveShears;
+import me.ellieis.Sabotage.game.custom.items.ShopItem;
 import me.ellieis.Sabotage.game.map.SabotageMap;
 import me.ellieis.Sabotage.game.map.SabotageMapBuilder;
 import me.ellieis.Sabotage.game.statistics.KarmaManager;
@@ -22,11 +23,14 @@ import net.minecraft.entity.decoration.MannequinEntity;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.ItemCooldownManager;
+import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.nbt.NbtElement;
 import net.minecraft.network.message.MessageType;
 import net.minecraft.network.message.SentMessage;
 import net.minecraft.network.message.SignedMessage;
+import net.minecraft.network.packet.c2s.common.CustomClickActionC2SPacket;
 import net.minecraft.network.packet.s2c.play.PositionFlag;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.registry.RegistryKey;
@@ -67,17 +71,23 @@ import xyz.nucleoid.stimuli.event.block.BlockRandomTickEvent;
 import xyz.nucleoid.stimuli.event.block.BlockUseEvent;
 import xyz.nucleoid.stimuli.event.block.FlowerPotModifyEvent;
 import xyz.nucleoid.stimuli.event.entity.EntityUseEvent;
+import xyz.nucleoid.stimuli.event.item.ItemThrowEvent;
+import xyz.nucleoid.stimuli.event.player.PlayerC2SPacketEvent;
 import xyz.nucleoid.stimuli.event.player.PlayerDamageEvent;
 import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
 import xyz.nucleoid.stimuli.event.player.ReplacePlayerChatEvent;
 import xyz.nucleoid.stimuli.event.world.ExplosionDetonatedEvent;
 
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
 
 import static me.ellieis.Sabotage.Sabotage.MOD_ID;
+import static me.ellieis.Sabotage.Sabotage.SHOP_BUY_PACKET_ID;
+import static me.ellieis.Sabotage.game.custom.SabotageItems.SHOP_ITEM;
 
 public class SabotageActive {
 
@@ -101,6 +111,8 @@ public class SabotageActive {
     private final TeamManager teamManager;
     private final ChatManager chatManager;
     private final CombatManager combatManager;
+    private final HashMap<BlockPos, ServerPlayerEntity> trappedChests = new HashMap<>();
+    public final ArrayList<ServerPlayerEntity> testerBypassers = new ArrayList<>();
     public SabotageActive(SabotageConfig config, GameSpace gameSpace, SabotageMap map, ServerWorld world, GameActivity activity) {
         this.config = config;
         this.gameSpace = gameSpace;
@@ -226,6 +238,8 @@ public class SabotageActive {
             content.add(ScreenTexts.EMPTY);
             content.add(Text.translatable("sabotage.sidebar.time_left", minutes, seconds));
         });
+
+
     }
 
     public void setSidebars() {
@@ -373,6 +387,10 @@ public class SabotageActive {
             };
             Consumer<GameSpace> reveal = (gameSpace) -> {
                 Roles plrRole = teamManager.getPlayerRole(plr);
+                if (testerBypassers.contains(plr)) {
+                    plrRole = Roles.INNOCENT;
+                    testerBypassers.remove(plr);
+                }
                 // isTesterOnCooldown is changed in this method
                 changeTesterWool(plrRole);
                 for (BlockPos blockPos : map.getTesterCloseRegion().getBounds()) {
@@ -406,7 +424,7 @@ public class SabotageActive {
         teamManager.pickRoles();
         gameStartedRules(activity);
         getAlivePlayers().forEach(plr -> {
-            karmaManager.setKarma(plr, 20);
+            karmaManager.setKarma(plr, 40);
             plr.setExperiencePoints(plr.getNextLevelExperience() - 1);
         });
     }
@@ -466,6 +484,23 @@ public class SabotageActive {
             activity.listen(ExplosionDetonatedEvent.EVENT, game::onExplosion);
             activity.listen(PlayerDamageEvent.EVENT, game::onDamage);
             activity.listen(EntityUseEvent.EVENT, game::onEntityUse);
+            activity.listen(ItemThrowEvent.EVENT, (plr, slot, stack) -> {
+                if (stack.getItem() instanceof ShopItem) {
+                    return EventResult.DENY;
+                } else {
+                    return EventResult.PASS;
+                }
+            });
+            activity.listen(PlayerC2SPacketEvent.EVENT, (plr, msg) -> {
+                if (msg instanceof CustomClickActionC2SPacket(
+                        net.minecraft.util.Identifier id, java.util.Optional<net.minecraft.nbt.NbtElement> payload
+                )) {
+                    if (id.equals(SHOP_BUY_PACKET_ID)) {
+                        game.onShopBuy(plr, payload.get().asString().orElseThrow());
+                    }
+                }
+                return EventResult.PASS;
+            });
             map.setWorld(world);
             map.generateChests();
             PlayerSet plrs = game.gameSpace.getPlayers();
@@ -473,6 +508,7 @@ public class SabotageActive {
             for (ServerPlayerEntity plr : plrs) {
                 game.map.spawnPlayer(world, plr);
                 game.globalSidebar.addPlayer(plr);
+                plr.getInventory().setStack(8, new ItemStack(SHOP_ITEM));
                 plr.setOnFire(false);
                 plr.setFireTicks(0);
             }
@@ -485,7 +521,7 @@ public class SabotageActive {
 
     private EventResult onEntityUse(ServerPlayerEntity plr, Entity entity, Hand hand, EntityHitResult entityHitResult) {
         ItemStack stack = plr.getStackInHand(hand);
-        if (stack.getItem() instanceof DetectiveShears shears) {
+        if (stack.getItem() instanceof DetectiveShears) {
             if (!plr.getItemCooldownManager().isCoolingDown(stack)) {
                 if (entity instanceof MannequinEntity mannequin) {
                     plr.getItemCooldownManager().set(stack, 300);
@@ -514,7 +550,21 @@ public class SabotageActive {
                 return ActionResult.CONSUME;
             }
         }
-
+        if (item.isOf(Items.TRAPPED_CHEST)) {
+            BlockPos placementPos = blockHitResult.getBlockPos().offset(blockHitResult.getSide());
+            trappedChests.put(placementPos, player);
+            item.decrement(1);
+            world.setBlockState(placementPos, Blocks.TRAPPED_CHEST.getPlacementState(new ItemPlacementContext(player, hand, item, blockHitResult)));
+            return ActionResult.SUCCESS;
+        }
+        // trapped chests explode when interacted
+        BlockPos pos = blockHitResult.getBlockPos();
+        Vec3d centerPos = pos.toCenterPos();
+        if (world.getBlockState(pos).getBlock() instanceof TrappedChestBlock) {
+            world.setBlockState(pos, Blocks.AIR.getDefaultState());
+            world.createExplosion(trappedChests.get(pos), centerPos.getX(), centerPos.getY(), centerPos.getZ(), 4, World.ExplosionSourceType.TNT);
+            return ActionResult.CONSUME;
+        }
         return ActionResult.PASS;
     }
 
@@ -598,6 +648,36 @@ public class SabotageActive {
             plrs.sendMessage(Text.translatable("sabotage.kill_message", plr.getName(), getAlivePlayers().size()).formatted(Formatting.YELLOW));
         }
         return EventResult.DENY;
+    }
+
+    private void onShopBuy(ServerPlayerEntity plr, String item) {
+        Roles role = teamManager.getPlayerRole(plr);
+        if (role == Roles.SABOTEUR) {
+            switch (item) {
+                case "trapped_chest":
+                    if (karmaManager.getKarma(plr) > 20) {
+                        plr.getInventory().insertStack(new ItemStack(Items.TRAPPED_CHEST));
+                        karmaManager.decrementKarma(plr, 20);
+                        plr.sendMessage(Text.translatable("sabotage.shop.trapped_chest.desc"));
+                        plr.sendMessage(Text.translatable("sabotage.shop.buy_success", Text.literal("(20 Karma)").formatted(Formatting.BLUE)).formatted(Formatting.GREEN), true);
+                    } else {
+                        plr.sendMessage(Text.translatable("sabotage.shop.buy_fail").formatted(Formatting.RED), true);
+                    }
+                    break;
+                case "tester_bypass":
+                    if (karmaManager.getKarma(plr) > 20) {
+                        testerBypassers.add(plr);
+                        karmaManager.decrementKarma(plr, 20);
+                        plr.sendMessage(Text.translatable("sabotage.shop.tester_bypass.desc"));
+                        plr.sendMessage(Text.translatable("sabotage.shop.buy_success", Text.literal("(20 Karma)").formatted(Formatting.BLUE)).formatted(Formatting.GREEN), true);
+                    } else {
+                        plr.sendMessage(Text.translatable("sabotage.shop.buy_fail").formatted(Formatting.RED), true);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 
     private JoinAcceptorResult onAccept(JoinAcceptor acceptor) {

@@ -4,6 +4,7 @@ import eu.pb4.polymer.core.api.item.PolymerBlockItem;
 import eu.pb4.polymer.core.api.item.PolymerItemGroupUtils;
 import me.ellieis.Sabotage.Sabotage;
 import me.ellieis.Sabotage.game.custom.items.DetectiveShears;
+import me.ellieis.Sabotage.game.custom.items.ShopItem;
 import me.ellieis.Sabotage.game.custom.items.TesterSign;
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
 import net.minecraft.item.Item;
@@ -20,6 +21,8 @@ public class SabotageItems {
     public static final Item TESTER_WOOL = new PolymerBlockItem(SabotageBlocks.TESTER_WOOL, new Item.Settings().useBlockPrefixedTranslationKey().registryKey(RegistryKey.of(RegistryKeys.ITEM, Sabotage.identifier("tester_wool"))), Items.WHITE_WOOL);
     public static final Item TESTER_SIGN = new TesterSign(new Item.Settings().useBlockPrefixedTranslationKey().registryKey(RegistryKey.of(RegistryKeys.ITEM, Sabotage.identifier("tester_sign"))), SabotageBlocks.TESTER_SIGN, SabotageBlocks.WALL_TESTER_SIGN);
     public static final Item DETECTIVE_SHEARS = new DetectiveShears(new Item.Settings().useItemPrefixedTranslationKey().registryKey(RegistryKey.of(RegistryKeys.ITEM, Sabotage.identifier("detective_shears"))).maxDamage(101));
+    public static final Item SHOP_ITEM = new ShopItem(new Item.Settings().useItemPrefixedTranslationKey().registryKey(RegistryKey.of(RegistryKeys.ITEM, Sabotage.identifier("shop_item"))).maxCount(1));
+
     public static final ItemGroup ITEM_GROUP = FabricItemGroup.builder()
             .displayName(Text.translatable("gameType.sabotage.sabotage"))
             .icon(SABOTAGE_CHEST::getDefaultStack)
@@ -34,6 +37,7 @@ public class SabotageItems {
         register("detective_shears", DETECTIVE_SHEARS);
         register("tester_sign", TESTER_SIGN);
         register("tester_wool", TESTER_WOOL);
+        register("shop_item", SHOP_ITEM);
         PolymerItemGroupUtils.registerPolymerItemGroup(Sabotage.identifier("general"), ITEM_GROUP);
     }
     private static <T extends Item> T register(String id, T item) {

@@ -9,6 +9,7 @@
   "block.sabotage.tester_sign": "Tester Sign",
   "block.sabotage.wall_tester_sign": "Tester Sign",
   "item.sabotage.detective_shears": "Portable Tester",
+  "item.sabotage.shop_item": "Shop",
 
   "map.sabotage.random": "Random",
   "map.sabotage.village": "Village",
@@ -33,6 +34,14 @@
   "sabotage.sidebar.role": "Your role is: %s",
   "sabotage.sidebar.role.desc": "Find and kill all %s",
   "sabotage.sidebar.time_left": "Time left: %02d:%02d",
+
+  "sabotage.shop.desc": "Welcome to the Sabotage Shop!\nClick any item to buy it",
+  "sabotage.shop.trapped_chest": "(20 Karma) Trapped Chest",
+  "sabotage.shop.trapped_chest.desc": "You can now place a Trapped Chest that blows up when interacted with.",
+  "sabotage.shop.tester_bypass": "(20 Karma) Bypass Map Tester Once",
+  "sabotage.shop.tester_bypass.desc": "You can now enter the Map Tester once without revealing your role.",
+  "sabotage.shop.buy_success": "Successfully bought the item for %s.",
+  "sabotage.shop.buy_fail": "You do not have enough karma to buy this item.",
 
   "sabotage.tester.blew_up": "You blew up the tester. %s",
   "sabotage.tester.message": "%s is being tested. Check back in %s seconds for the result",
