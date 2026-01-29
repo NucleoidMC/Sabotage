@@ -23,15 +23,16 @@ import net.minecraft.entity.decoration.MannequinEntity;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.ItemCooldownManager;
+import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtElement;
 import net.minecraft.network.message.MessageType;
 import net.minecraft.network.message.SentMessage;
 import net.minecraft.network.message.SignedMessage;
 import net.minecraft.network.packet.c2s.common.CustomClickActionC2SPacket;
 import net.minecraft.network.packet.s2c.play.PositionFlag;
+import net.minecraft.network.packet.s2c.play.WaypointS2CPacket;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
@@ -50,10 +51,14 @@ import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.Vec3i;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.rule.GameRules;
 import net.minecraft.world.World;
 import net.minecraft.world.explosion.Explosion;
+import net.minecraft.world.waypoint.TrackedWaypoint;
+import net.minecraft.world.waypoint.Waypoint;
+import org.joml.Vector3i;
 import xyz.nucleoid.fantasy.RuntimeWorldConfig;
 import xyz.nucleoid.plasmid.api.game.GameActivity;
 import xyz.nucleoid.plasmid.api.game.GameCloseReason;
@@ -83,10 +88,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static me.ellieis.Sabotage.Sabotage.MOD_ID;
 import static me.ellieis.Sabotage.Sabotage.SHOP_BUY_PACKET_ID;
+import static me.ellieis.Sabotage.game.custom.SabotageItems.DETECTIVE_SHEARS;
 import static me.ellieis.Sabotage.game.custom.SabotageItems.SHOP_ITEM;
 
 public class SabotageActive {
@@ -108,11 +115,12 @@ public class SabotageActive {
     public SidebarWidget innocentSidebar;
     public SidebarWidget detectiveSidebar;
     public SidebarWidget saboteurSidebar;
-    private final TeamManager teamManager;
+    public final TeamManager teamManager;
     private final ChatManager chatManager;
     private final CombatManager combatManager;
     private final HashMap<BlockPos, ServerPlayerEntity> trappedChests = new HashMap<>();
     public final ArrayList<ServerPlayerEntity> testerBypassers = new ArrayList<>();
+    public final ArrayList<ServerPlayerEntity> playersWithTracker = new ArrayList<>();
     public SabotageActive(SabotageConfig config, GameSpace gameSpace, SabotageMap map, ServerWorld world, GameActivity activity) {
         this.config = config;
         this.gameSpace = gameSpace;
@@ -419,12 +427,21 @@ public class SabotageActive {
         return true;
     }
 
+    public void updateWaypoints() {
+        for (ServerPlayerEntity plr2 : playersWithTracker) {
+            for (ServerPlayerEntity plr : getAlivePlayers()) {
+                Vector3i pos = plr.getBlockPos().asVector3i();
+                plr2.networkHandler.sendPacket(WaypointS2CPacket.updatePos(plr.getUuid(), Waypoint.Config.DEFAULT, new Vec3i(pos.x, pos.y, pos.z)));
+            }
+        }
+    }
+
     public void Start() {
         gameState = GameStates.ACTIVE;
         teamManager.pickRoles();
         gameStartedRules(activity);
         getAlivePlayers().forEach(plr -> {
-            karmaManager.setKarma(plr, 40);
+            karmaManager.setKarma(plr, config.startingKarma());
             plr.setExperiencePoints(plr.getNextLevelExperience() - 1);
         });
     }
@@ -485,7 +502,7 @@ public class SabotageActive {
             activity.listen(PlayerDamageEvent.EVENT, game::onDamage);
             activity.listen(EntityUseEvent.EVENT, game::onEntityUse);
             activity.listen(ItemThrowEvent.EVENT, (plr, slot, stack) -> {
-                if (stack.getItem() instanceof ShopItem) {
+                if (stack.getItem() instanceof ShopItem || stack.getItem() instanceof DetectiveShears) {
                     return EventResult.DENY;
                 } else {
                     return EventResult.PASS;
@@ -629,6 +646,9 @@ public class SabotageActive {
         return false;
     }
     private EventResult onDeath(ServerPlayerEntity plr, DamageSource damageSource) {
+        for (ServerPlayerEntity plr2 : playersWithTracker) {
+            plr2.networkHandler.sendPacket(WaypointS2CPacket.untrack(plr.getUuid()));
+        }
         Entity entityAttacker = damageSource.getAttacker();
         EventResult result = combatManager.onDeath(plr, damageSource);
 
@@ -652,31 +672,106 @@ public class SabotageActive {
 
     private void onShopBuy(ServerPlayerEntity plr, String item) {
         Roles role = teamManager.getPlayerRole(plr);
-        if (role == Roles.SABOTEUR) {
-            switch (item) {
-                case "trapped_chest":
-                    if (karmaManager.getKarma(plr) > 20) {
-                        plr.getInventory().insertStack(new ItemStack(Items.TRAPPED_CHEST));
-                        karmaManager.decrementKarma(plr, 20);
-                        plr.sendMessage(Text.translatable("sabotage.shop.trapped_chest.desc"));
-                        plr.sendMessage(Text.translatable("sabotage.shop.buy_success", Text.literal("(20 Karma)").formatted(Formatting.BLUE)).formatted(Formatting.GREEN), true);
-                    } else {
-                        plr.sendMessage(Text.translatable("sabotage.shop.buy_fail").formatted(Formatting.RED), true);
-                    }
-                    break;
-                case "tester_bypass":
-                    if (karmaManager.getKarma(plr) > 20) {
-                        testerBypassers.add(plr);
-                        karmaManager.decrementKarma(plr, 20);
-                        plr.sendMessage(Text.translatable("sabotage.shop.tester_bypass.desc"));
-                        plr.sendMessage(Text.translatable("sabotage.shop.buy_success", Text.literal("(20 Karma)").formatted(Formatting.BLUE)).formatted(Formatting.GREEN), true);
-                    } else {
-                        plr.sendMessage(Text.translatable("sabotage.shop.buy_fail").formatted(Formatting.RED), true);
-                    }
-                    break;
-                default:
-                    break;
-            }
+        switch (role) {
+            case SABOTEUR:
+                switch (item) {
+                    case "trapped_chest":
+                        if (karmaManager.getKarma(plr) > 20) {
+                            plr.getInventory().insertStack(new ItemStack(Items.TRAPPED_CHEST));
+                            karmaManager.decrementKarma(plr, 20);
+                            plr.sendMessage(Text.translatable("sabotage.shop.trapped_chest.desc"));
+                            plr.sendMessage(Text.translatable("sabotage.shop.buy_success", Text.literal("(20 Karma)").formatted(Formatting.BLUE)).formatted(Formatting.GREEN), true);
+                        } else {
+                            plr.sendMessage(Text.translatable("sabotage.shop.buy_fail").formatted(Formatting.RED), true);
+                        }
+                        break;
+                    case "tester_bypass":
+                        if (karmaManager.getKarma(plr) > 20) {
+                            testerBypassers.add(plr);
+                            karmaManager.decrementKarma(plr, 20);
+                            plr.sendMessage(Text.translatable("sabotage.shop.tester_bypass.desc"));
+                            plr.sendMessage(Text.translatable("sabotage.shop.buy_success", Text.literal("(20 Karma)").formatted(Formatting.BLUE)).formatted(Formatting.GREEN), true);
+                        } else {
+                            plr.sendMessage(Text.translatable("sabotage.shop.buy_fail").formatted(Formatting.RED), true);
+                        }
+                        break;
+                }
+                break;
+            case DETECTIVE:
+                switch (item) {
+                    case "tester_recharge":
+                        if (karmaManager.getKarma(plr) > 10) {
+                            PlayerInventory inventory = plr.getInventory();
+                            int slot = -1;
+                            for (int i = 0; i < 36; i++) {
+                                if (inventory.getStack(i).getItem() instanceof DetectiveShears) {
+                                    slot = i;
+                                    break;
+                                }
+                            }
+                            if (slot == -1) {
+                                plr.sendMessage(Text.translatable("sabotage.shop.tester_recharge.fail").formatted(Formatting.RED), true);
+                                break;
+                            }
+                            ItemStack stack = inventory.getStack(slot);
+                            if (stack.getDamage() >= 50) {
+                                stack.setDamage(stack.getDamage() - 50);
+                                plr.sendMessage(Text.translatable("sabotage.shop.buy_success", Text.literal("(20 Karma)").formatted(Formatting.BLUE)).formatted(Formatting.GREEN), true);
+                                plr.sendMessage(Text.translatable("sabotage.shop.tester_recharge.desc"));
+                                karmaManager.decrementKarma(plr, 10);
+                            } else {
+                                plr.sendMessage(Text.translatable("sabotage.shop.tester_recharge.full").formatted(Formatting.RED), true);
+                            }
+                        } else {
+                            plr.sendMessage(Text.translatable("sabotage.shop.buy_fail").formatted(Formatting.RED), true);
+                        }
+                        break;
+                    case "player_tracker":
+                        if (karmaManager.getKarma(plr) > 20) {
+                            playersWithTracker.add(plr);
+                            for (ServerPlayerEntity alive : getAlivePlayers()) {
+                                Vector3i pos = alive.getBlockPos().asVector3i();
+                                plr.networkHandler.sendPacket(WaypointS2CPacket.trackPos(alive.getUuid(), Waypoint.Config.DEFAULT, new Vec3i(pos.x, pos.y, pos.z)));
+                            }
+                            plr.sendMessage(Text.translatable("sabotage.shop.buy_success", Text.literal("(20 Karma)").formatted(Formatting.BLUE)).formatted(Formatting.GREEN), true);
+                            plr.sendMessage(Text.translatable("sabotage.shop.tracker.desc"));
+                            karmaManager.decrementKarma(plr, 20);
+                        } else {
+                            plr.sendMessage(Text.translatable("sabotage.shop.buy_fail").formatted(Formatting.RED), true);
+                        }
+                        break;
+                }
+                break;
+            case INNOCENT:
+                switch (item) {
+                    case "wooden_spear":
+                        if (karmaManager.getKarma(plr) > 30) {
+                            ItemStack spear = new ItemStack(Items.WOODEN_SPEAR);
+                            spear.setDamage(spear.getMaxDamage() - 1);
+                            plr.sendMessage(Text.translatable("sabotage.shop.buy_success", Text.literal("(30 Karma)").formatted(Formatting.BLUE)).formatted(Formatting.GREEN), true);
+                            plr.sendMessage(Text.translatable("sabotage.shop.wooden_spear.desc"));
+                            plr.getInventory().insertStack(spear);
+                            karmaManager.decrementKarma(plr, 30);
+                        } else {
+                            plr.sendMessage(Text.translatable("sabotage.shop.buy_fail").formatted(Formatting.RED), true);
+                        }
+                        break;
+                    case "player_tracker":
+                        if (karmaManager.getKarma(plr) > 20) {
+                            playersWithTracker.add(plr);
+                            for (ServerPlayerEntity alive : getAlivePlayers()) {
+                                Vector3i pos = alive.getBlockPos().asVector3i();
+                                plr.networkHandler.sendPacket(WaypointS2CPacket.trackPos(alive.getUuid(), Waypoint.Config.DEFAULT, new Vec3i(pos.x, pos.y, pos.z)));
+                            }
+                            plr.sendMessage(Text.translatable("sabotage.shop.buy_success", Text.literal("(20 Karma)").formatted(Formatting.BLUE)).formatted(Formatting.GREEN), true);
+                            plr.sendMessage(Text.translatable("sabotage.shop.tracker.desc"));
+                            karmaManager.decrementKarma(plr, 20);
+                        } else {
+                            plr.sendMessage(Text.translatable("sabotage.shop.buy_fail").formatted(Formatting.RED), true);
+                        }
+                        break;
+                }
+                break;
         }
     }
 
@@ -694,6 +789,9 @@ public class SabotageActive {
     }
 
     private void onPlayerRemove(ServerPlayerEntity plr) {
+        for (ServerPlayerEntity plr2 : playersWithTracker) {
+            plr2.networkHandler.sendPacket(WaypointS2CPacket.untrack(plr.getUuid()));
+        }
         Roles role = teamManager.getPlayerRole(plr);
         if (role == Roles.SABOTEUR) {
             teamManager.saboteurs.remove(plr);
@@ -802,9 +900,12 @@ public class SabotageActive {
                         return;
                     }
                     updateSidebars();
+                    updateWaypoints();
                     double factor = ((timeLimit - timePassed) / timeLimit);
                     getAlivePlayers().forEach(plr -> {
-                        plr.setExperiencePoints((int) (plr.getNextLevelExperience() * factor));
+                        if (!playersWithTracker.contains(plr)) {
+                            plr.setExperiencePoints((int) (plr.getNextLevelExperience() * factor));
+                        }
                     });
                 }
             }

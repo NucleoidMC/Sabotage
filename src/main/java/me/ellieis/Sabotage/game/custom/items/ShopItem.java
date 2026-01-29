@@ -3,6 +3,7 @@ package me.ellieis.Sabotage.game.custom.items;
 import eu.pb4.polymer.core.api.item.PolymerItem;
 import eu.pb4.polymer.resourcepack.api.PolymerResourcePackUtils;
 import me.ellieis.Sabotage.Sabotage;
+import me.ellieis.Sabotage.game.Roles;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
 import net.minecraft.dialog.AfterAction;
 import net.minecraft.dialog.DialogCommonData;
@@ -14,7 +15,6 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtString;
-import net.minecraft.registry.Registries;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.ClickEvent;
@@ -34,6 +34,9 @@ import java.util.Optional;
 import static me.ellieis.Sabotage.Sabotage.SHOP_BUY_PACKET_ID;
 
 public class ShopItem extends Item implements PolymerItem {
+    private static PlainMessageDialogBody itemBody(String translationKey, String itemId) {
+        return new PlainMessageDialogBody(Text.translatable(translationKey).styled(style -> style.withClickEvent(new ClickEvent.Custom(SHOP_BUY_PACKET_ID, Optional.of(NbtString.of(itemId)))).withColor(Formatting.BLUE)), 300);
+    }
     public ShopItem(Settings settings) {
         super(settings);
     }
@@ -45,25 +48,37 @@ public class ShopItem extends Item implements PolymerItem {
         if (!GameSpaceManager.get().inGame(plr)) {
             return ActionResult.PASS;
         }
-        boolean isInGame = false;
-        for (SabotageActive game : Sabotage.activeGames) {
-            if (game.getWorld().equals(world)){
-                isInGame = true;
+        SabotageActive game = null;
+        for (SabotageActive game2 : Sabotage.activeGames) {
+            if (game2.getWorld().equals(world)){
+                game = game2;
                 break;
             }
         }
-        if (!isInGame) {
+        if (game == null) {
             return ActionResult.PASS;
         }
-
+        Roles role = game.teamManager.getPlayerRole((ServerPlayerEntity) plr);
         var body = new ArrayList<DialogBody>();
         body.add(new PlainMessageDialogBody(Text.translatable("sabotage.shop.desc"), 300));
-        body.add(new PlainMessageDialogBody(Text.translatable("sabotage.shop.trapped_chest").styled((style ->
-            style.withClickEvent(new ClickEvent.Custom(SHOP_BUY_PACKET_ID, Optional.of(NbtString.of("trapped_chest")))).withColor(Formatting.BLUE)
-        )), 300));
-        body.add(new PlainMessageDialogBody(Text.translatable("sabotage.shop.tester_bypass").styled((style ->
-                style.withClickEvent(new ClickEvent.Custom(SHOP_BUY_PACKET_ID, Optional.of(NbtString.of("tester_bypass")))).withColor(Formatting.BLUE)
-        )), 300));
+        switch (role) {
+            case INNOCENT:
+                body.add(itemBody("sabotage.shop.wooden_spear", "wooden_spear"));
+                body.add(itemBody("sabotage.shop.tracker", "player_tracker"));
+                break;
+            case DETECTIVE:
+                body.add(itemBody("sabotage.shop.tester_recharge", "tester_recharge"));
+                body.add(itemBody("sabotage.shop.tracker", "player_tracker"));
+                break;
+            case SABOTEUR:
+                body.add(itemBody("sabotage.shop.trapped_chest", "trapped_chest"));
+                body.add(itemBody("sabotage.shop.tester_bypass", "tester_bypass"));
+                break;
+            case NONE:
+            default:
+                body.add(new PlainMessageDialogBody(Text.translatable("sabotage.shop.no_role"), 300));
+        }
+
         var dialog = new NoticeDialog(new DialogCommonData(getName(), Optional.empty(), true, false, AfterAction.CLOSE, body, List.of()), NoticeDialog.OK_BUTTON);
         plr.openDialog(RegistryEntry.of(dialog));
         return ActionResult.FAIL;
