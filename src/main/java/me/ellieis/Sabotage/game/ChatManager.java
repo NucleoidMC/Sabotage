@@ -2,8 +2,10 @@ package me.ellieis.Sabotage.game;
 
 import me.ellieis.Sabotage.game.config.SabotageConfig;
 import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityPosition;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.decoration.DisplayEntity;
+import net.minecraft.network.packet.s2c.play.EntityPositionS2CPacket;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
@@ -78,6 +80,17 @@ public class ChatManager {
                 0,
                 TeleportTarget.NO_OP
         ));
+
+        // this is to make the entity movement less blocky.
+        gameSpace.getPlayers().sendPacket(
+                new EntityPositionS2CPacket(
+                        info.entity().getId(),
+                        new EntityPosition(
+                                info.entity().getSyncedPos(),
+                                info.entity().getVelocity(),
+                                info.entity().getYaw(),
+                                info.entity().getPitch()
+                        ), Set.of(), false));
     }
     public void onTick() {
         for (Map.Entry<ServerPlayerEntity, ArrayList<messageInfo>> entry: messages.entrySet()) {
