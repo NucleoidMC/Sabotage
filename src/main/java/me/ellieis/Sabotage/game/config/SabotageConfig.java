@@ -5,21 +5,21 @@ import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import me.ellieis.Sabotage.Sabotage;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 import xyz.nucleoid.fantasy.Fantasy;
 import xyz.nucleoid.plasmid.api.game.common.config.PlayerLimiterConfig;
 import xyz.nucleoid.plasmid.api.game.common.config.WaitingLobbyConfig;
 
 import java.util.OptionalInt;
 
-public record SabotageConfig(Identifier map,Identifier waitingLobby, boolean proximityTextChat, int time, Identifier dimension, int countdownTime, int gracePeriod, int timeLimit, int endDelay, int startingKarma, InnocentConfig innocentConfig, DetectiveConfig detectiveConfig, SaboteurConfig saboteurConfig, WaitingLobbyConfig playerConfig) {
+public record SabotageConfig(Identifier map, Identifier waitingLobby, boolean proximityTextChat, int time, Identifier dimension, int countdownTime, int gracePeriod, int timeLimit, int endDelay, int startingKarma, InnocentConfig innocentConfig, DetectiveConfig detectiveConfig, SaboteurConfig saboteurConfig, WaitingLobbyConfig playerConfig) {
     public static final MapCodec<SabotageConfig> CODEC = RecordCodecBuilder.mapCodec(instance ->
         instance.group(
                 Identifier.CODEC.fieldOf("map").forGetter(SabotageConfig::map),
                 Identifier.CODEC.optionalFieldOf("waiting_lobby", Sabotage.identifier("lobby")).forGetter(SabotageConfig::waitingLobby),
                 Codec.BOOL.optionalFieldOf("proximity_text_chat", false).forGetter(SabotageConfig::proximityTextChat),
                 Codec.INT.optionalFieldOf("time", 6000).forGetter(SabotageConfig::time),
-                Identifier.CODEC.optionalFieldOf("dimension", Fantasy.DEFAULT_DIM_TYPE.getValue()).forGetter(SabotageConfig::dimension),
+                Identifier.CODEC.optionalFieldOf("dimension", Fantasy.DEFAULT_DIM_TYPE.identifier()).forGetter(SabotageConfig::dimension),
                 Codec.INT.optionalFieldOf("countdown_time", 5).forGetter(SabotageConfig::countdownTime),
                 Codec.INT.optionalFieldOf("grace_period", 15).forGetter(SabotageConfig::gracePeriod),
                 Codec.INT.optionalFieldOf("time_limit", 1200).forGetter(SabotageConfig::timeLimit),

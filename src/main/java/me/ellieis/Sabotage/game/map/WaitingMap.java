@@ -1,11 +1,11 @@
 package me.ellieis.Sabotage.game.map;
 
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.gen.chunk.ChunkGenerator;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.chunk.ChunkGenerator;
 import xyz.nucleoid.map_templates.MapTemplate;
 import xyz.nucleoid.map_templates.TemplateRegion;
 import xyz.nucleoid.plasmid.api.game.GameOpenException;
@@ -23,7 +23,7 @@ public class WaitingMap {
         this.spawns = template.getMetadata().getRegions("spawn").toList();
         this.template = template;
         if (this.spawns.isEmpty()) {
-            throw new GameOpenException(Text.literal("Failed to load spawns, as there aren't any."));
+            throw new GameOpenException(Component.literal("Failed to load spawns, as there aren't any."));
         }
     }
 
@@ -31,12 +31,12 @@ public class WaitingMap {
         return this.spawns;
     }
 
-    public void spawnPlayer(ServerWorld world, ServerPlayerEntity plr) {
+    public void spawnPlayer(ServerLevel world, ServerPlayer plr) {
         TemplateRegion spawn = spawns.get(new Random().nextInt(spawns.size()));
-        Vec3d pos = spawn.getBounds().centerBottom();
-        plr.teleport(world, pos.getX(), pos.getY(), pos.getZ(), new HashSet<>(), spawn.getData().getFloat("Rotation", 0f), 0, true);
+        Vec3 pos = spawn.getBounds().centerBottom();
+        plr.teleportTo(world, pos.x(), pos.y(), pos.z(), new HashSet<>(), spawn.getData().getFloatOr("Rotation", 0f), 0, true);
         plr.setOnGround(true);
-        plr.setVelocity(0,0,0);
+        plr.setDeltaMovement(0,0,0);
     }
 
     public ChunkGenerator asChunkGenerator(MinecraftServer server) {

@@ -1,8 +1,8 @@
 package me.ellieis.Sabotage.game.custom.blocks;
 
-import net.minecraft.block.BlockState;
-import net.minecraft.block.entity.SignBlockEntity;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.core.BlockPos;
 
 import static me.ellieis.Sabotage.game.custom.SabotageBlocks.TESTER_SIGN_ENTITY;
 

@@ -7,7 +7,7 @@ import me.ellieis.Sabotage.game.custom.SabotageItems;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
 import me.ellieis.Sabotage.game.phase.SabotageWaiting;
 import net.fabricmc.api.ModInitializer;
-import net.minecraft.util.Identifier;
+import net.minecraft.resources.Identifier;
 import xyz.nucleoid.plasmid.api.game.GameTypes;
 
 import java.util.ArrayList;
@@ -28,6 +28,6 @@ public class Sabotage implements ModInitializer {
 	}
 
 	public static Identifier identifier(String value) {
-		return Identifier.of(MOD_ID, value);
+		return Identifier.fromNamespaceAndPath(MOD_ID, value);
 	}
 }

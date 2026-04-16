@@ -9,31 +9,35 @@ import me.ellieis.Sabotage.game.GameStates;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
 import me.ellieis.Sabotage.game.statistics.GlobalPlayerStatistics;
 import me.ellieis.Sabotage.game.statistics.SabotagePlayerStatistics;
-import net.minecraft.block.*;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.block.entity.ChestBlockEntity;
-import net.minecraft.component.DataComponentTypes;
-import net.minecraft.component.type.FireworkExplosionComponent;
-import net.minecraft.component.type.FireworksComponent;
-import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.DyeColor;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.item.component.FireworkExplosion;
+import net.minecraft.world.item.component.Fireworks;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.Level;
 import xyz.nucleoid.packettweaker.PacketContext;
 
 import java.util.List;
@@ -43,7 +47,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import static java.util.Map.entry;
 import static me.ellieis.Sabotage.game.custom.SabotageBlocks.SABOTAGE_CHEST_ENTITY;
 
-public class SabotageChest extends ChestBlock implements BlockEntityProvider, PolymerBlock {
+public class SabotageChest extends ChestBlock implements EntityBlock, PolymerBlock {
     private final Block virtualBlock = Blocks.CHEST;
     private static final Map<Item, Integer> items = Map.ofEntries(
             entry(Items.WOODEN_SWORD, 40),
@@ -101,9 +105,9 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
         ItemStack stack = new ItemStack(item);
         if (item == Items.FIREWORK_ROCKET) {
             IntList colors = IntList.of(DyeColor.ORANGE.getFireworkColor());
-            FireworkExplosionComponent explode = new FireworkExplosionComponent(FireworkExplosionComponent.Type.BURST, colors, IntList.of(), false, false);
-            FireworksComponent fireworkComponent = new FireworksComponent(0, List.of(explode));
-            stack.set(DataComponentTypes.FIREWORKS, fireworkComponent);
+            FireworkExplosion explode = new FireworkExplosion(FireworkExplosion.Shape.BURST, colors, IntList.of(), false, false);
+            Fireworks fireworkComponent = new Fireworks(0, List.of(explode));
+            stack.set(DataComponents.FIREWORKS, fireworkComponent);
         } else if (item == Items.ARROW) {
             stack.setCount(8);
         }
@@ -111,17 +115,17 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
         if (durabilities.get(item) != null) {
             int range = durabilities.get(item);
             int durability = (int) Math.floor(Math.random() * range);
-            stack.setDamage(stack.getMaxDamage() - durability);
+            stack.setDamageValue(stack.getMaxDamage() - durability);
         }
         return stack;
     }
-    public SabotageChest(Settings settings) {
-        super(() -> SABOTAGE_CHEST_ENTITY, SoundEvents.BLOCK_CHEST_OPEN, SoundEvents.BLOCK_CHEST_CLOSE, settings);
+    public SabotageChest(Properties settings) {
+        super(() -> SABOTAGE_CHEST_ENTITY, SoundEvents.CHEST_OPEN, SoundEvents.CHEST_CLOSE, settings);
     }
 
     @Override
-    public ActionResult onUse(BlockState state, World woorld, BlockPos pos, PlayerEntity plr, BlockHitResult hit) {
-        if (woorld.isClient()) return ActionResult.PASS;
+    public InteractionResult useWithoutItem(BlockState state, Level woorld, BlockPos pos, Player plr, BlockHitResult hit) {
+        if (woorld.isClientSide()) return InteractionResult.PASS;
         SabotageActive game = null;
 
         for (SabotageActive activeGame : Sabotage.activeGames) {
@@ -131,41 +135,41 @@ public class SabotageChest extends ChestBlock implements BlockEntityProvider, Po
             }
         }
         if (game != null && game.gameState != GameStates.COUNTDOWN) {
-            ServerWorld world = (ServerWorld) woorld;
-            world.playSound(null, pos, SoundEvents.BLOCK_CHEST_CLOSE, SoundCategory.BLOCKS, 1, 1.2f);
-            Vec3d center = pos.toCenterPos();
-            world.spawnParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, center.x, center.y, center.z, 16, 0, 0, 0, 0.5);
+            ServerLevel world = (ServerLevel) woorld;
+            world.playSound(null, pos, SoundEvents.CHEST_CLOSE, SoundSource.BLOCKS, 1, 1.2f);
+            Vec3 center = pos.getCenter();
+            world.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, center.x, center.y, center.z, 16, 0, 0, 0, 0.5);
 
-            PlayerInventory inventory = plr.getInventory();
+            Inventory inventory = plr.getInventory();
             ItemStack item = getItemDrop();
-            if (!inventory.insertStack(item)) {
+            if (!inventory.add(item)) {
                 // couldn't insert stack, inventory is likely full
-                world.spawnEntity(new ItemEntity(world, pos.getX(), pos.getY(), pos.getZ(), item));
+                world.addFreshEntity(new ItemEntity(world, pos.getX(), pos.getY(), pos.getZ(), item));
             }
 
-            game.stats.forPlayer((ServerPlayerEntity) plr).increment(SabotagePlayerStatistics.CHESTS_OPENED, 1);
+            game.stats.forPlayer((ServerPlayer) plr).increment(SabotagePlayerStatistics.CHESTS_OPENED, 1);
             game.stats.global().increment(GlobalPlayerStatistics.TOTAL_CHESTS_OPENED, 1);
 
-            world.setBlockState(pos, Blocks.AIR.getDefaultState());
-            world.updateNeighbors(pos, Blocks.AIR);
+            world.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
+            world.updateNeighborsAt(pos, Blocks.AIR);
         }
-        return ActionResult.FAIL;
+        return InteractionResult.FAIL;
     }
     @Override
     public BlockState getPolymerBlockState(BlockState state, PacketContext context) {
-        return this.virtualBlock.getStateWithProperties(state);
+        return this.virtualBlock.withPropertiesOf(state);
     }
 
-    public BlockEntity createBlockEntity(BlockPos pos, BlockState state) {
+    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new SabotageChestBlockEntity(pos, state);
     }
     @Override
-    public void onPolymerBlockSend(BlockState blockState, BlockPos.Mutable pos, PacketContext.NotNullWithPlayer context) {
-        NbtCompound nbt = new NbtCompound();
+    public void onPolymerBlockSend(BlockState blockState, BlockPos.MutableBlockPos pos, PacketContext.NotNullWithPlayer context) {
+        CompoundTag nbt = new CompoundTag();
         nbt.putInt("x", pos.getX());
         nbt.putInt("y", pos.getY());
         nbt.putInt("z", pos.getZ());
         nbt.putString("id", "minecraft:chest");
-        context.getPlayer().networkHandler.sendPacket(PolymerBlockUtils.createBlockEntityPacket(pos, BlockEntityType.CHEST, nbt));
+        context.getPlayer().connection.send(PolymerBlockUtils.createBlockEntityPacket(pos, BlockEntityType.CHEST, nbt));
     }
 }

@@ -5,25 +5,26 @@ import eu.pb4.polymer.resourcepack.api.PolymerResourcePackUtils;
 import me.ellieis.Sabotage.Sabotage;
 import me.ellieis.Sabotage.game.Roles;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
-import net.minecraft.dialog.AfterAction;
-import net.minecraft.dialog.DialogCommonData;
-import net.minecraft.dialog.body.DialogBody;
-import net.minecraft.dialog.body.PlainMessageDialogBody;
-import net.minecraft.dialog.type.NoticeDialog;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtString;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.ClickEvent;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.world.World;
+import net.minecraft.server.dialog.DialogAction;
+import net.minecraft.server.dialog.CommonDialogData;
+import net.minecraft.server.dialog.body.DialogBody;
+import net.minecraft.server.dialog.body.PlainMessage;
+import net.minecraft.server.dialog.NoticeDialog;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Item.Properties;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.core.Holder;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.network.chat.ClickEvent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.ChatFormatting;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.Level;
 import xyz.nucleoid.packettweaker.PacketContext;
 import xyz.nucleoid.plasmid.api.game.GameSpaceManager;
 
@@ -34,19 +35,19 @@ import java.util.Optional;
 import static me.ellieis.Sabotage.Sabotage.SHOP_BUY_PACKET_ID;
 
 public class ShopItem extends Item implements PolymerItem {
-    private static PlainMessageDialogBody itemBody(String translationKey, String itemId) {
-        return new PlainMessageDialogBody(Text.translatable(translationKey).styled(style -> style.withClickEvent(new ClickEvent.Custom(SHOP_BUY_PACKET_ID, Optional.of(NbtString.of(itemId)))).withColor(Formatting.BLUE)), 300);
+    private static PlainMessage itemBody(String translationKey, String itemId) {
+        return new PlainMessage(Component.translatable(translationKey).withStyle(style -> style.withClickEvent(new ClickEvent.Custom(SHOP_BUY_PACKET_ID, Optional.of(StringTag.valueOf(itemId)))).withColor(ChatFormatting.BLUE)), 300);
     }
-    public ShopItem(Settings settings) {
+    public ShopItem(Properties settings) {
         super(settings);
     }
     @Override
-    public ActionResult use(World world, PlayerEntity plr, Hand hand) {
-        if (world.isClient()) {
-            return ActionResult.PASS;
+    public InteractionResult use(Level world, Player plr, InteractionHand hand) {
+        if (world.isClientSide()) {
+            return InteractionResult.PASS;
         }
         if (!GameSpaceManager.get().inGame(plr)) {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
         SabotageActive game = null;
         for (SabotageActive game2 : Sabotage.activeGames) {
@@ -56,11 +57,11 @@ public class ShopItem extends Item implements PolymerItem {
             }
         }
         if (game == null) {
-            return ActionResult.PASS;
+            return InteractionResult.PASS;
         }
-        Roles role = game.teamManager.getPlayerRole((ServerPlayerEntity) plr);
+        Roles role = game.teamManager.getPlayerRole((ServerPlayer) plr);
         var body = new ArrayList<DialogBody>();
-        body.add(new PlainMessageDialogBody(Text.translatable("sabotage.shop.desc"), 300));
+        body.add(new PlainMessage(Component.translatable("sabotage.shop.desc"), 300));
         switch (role) {
             case INNOCENT:
                 body.add(itemBody("sabotage.shop.wooden_spear", "wooden_spear"));
@@ -76,12 +77,12 @@ public class ShopItem extends Item implements PolymerItem {
                 break;
             case NONE:
             default:
-                body.add(new PlainMessageDialogBody(Text.translatable("sabotage.shop.no_role"), 300));
+                body.add(new PlainMessage(Component.translatable("sabotage.shop.no_role"), 300));
         }
 
-        var dialog = new NoticeDialog(new DialogCommonData(getName(), Optional.empty(), true, false, AfterAction.CLOSE, body, List.of()), NoticeDialog.OK_BUTTON);
-        plr.openDialog(RegistryEntry.of(dialog));
-        return ActionResult.FAIL;
+        var dialog = new NoticeDialog(new CommonDialogData(getName(), Optional.empty(), true, false, DialogAction.CLOSE, body, List.of()), NoticeDialog.DEFAULT_ACTION);
+        plr.openDialog(Holder.direct(dialog));
+        return InteractionResult.FAIL;
     }
     @Override
     public Item getPolymerItem(ItemStack itemStack, PacketContext context) {

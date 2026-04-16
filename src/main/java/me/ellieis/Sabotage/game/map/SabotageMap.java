@@ -3,18 +3,18 @@ package me.ellieis.Sabotage.game.map;
 import me.ellieis.Sabotage.game.config.SabotageConfig;
 import me.ellieis.Sabotage.game.custom.blocks.SabotageChest;
 import me.ellieis.Sabotage.game.custom.blocks.TesterWool;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.state.property.Properties;
-import net.minecraft.text.Text;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Direction;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.gen.chunk.ChunkGenerator;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.network.chat.Component;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.chunk.ChunkGenerator;
 import xyz.nucleoid.map_templates.MapTemplate;
 import xyz.nucleoid.map_templates.TemplateRegion;
 import xyz.nucleoid.plasmid.api.game.GameOpenException;
@@ -33,9 +33,9 @@ public class SabotageMap {
     private final TemplateRegion testerCloseRegion;
     private final List<BlockPos> testerWools = new ArrayList<>();
     private final List<ChestInfo> chestSpawns = new ArrayList<>();
-    private final Map<PlayerRef, Vec3d> playerSpawnPos = new HashMap<>();
+    private final Map<PlayerRef, Vec3> playerSpawnPos = new HashMap<>();
     private final int playerCount;
-    private ServerWorld world;
+    private ServerLevel world;
 
     public SabotageMap(MapTemplate template, SabotageConfig config, int playerCount) {
         this.config = config;
@@ -45,11 +45,11 @@ public class SabotageMap {
         this.playerCount = playerCount;
 
         if (this.spawns.isEmpty()) {
-            throw new GameOpenException(Text.literal("Failed to load spawns, as there aren't any."));
+            throw new GameOpenException(Component.literal("Failed to load spawns, as there aren't any."));
         }
 
         if (this.testerCloseRegion == null) {
-            throw new GameOpenException(Text.literal("Failed to load tester close region, as there isn't any"));
+            throw new GameOpenException(Component.literal("Failed to load tester close region, as there isn't any"));
         }
 
         // generate chest positions from placed SabotageChests
@@ -58,14 +58,14 @@ public class SabotageMap {
             Block block = blockState.getBlock();
             if (block instanceof SabotageChest) {
                 // note to self: make your positions immutable in forEach loops..
-                chestSpawns.add(new ChestInfo(blockPos.toImmutable(), blockState.get(Properties.HORIZONTAL_FACING)));
-                template.setBlockState(blockPos, Blocks.AIR.getDefaultState());
+                chestSpawns.add(new ChestInfo(blockPos.immutable(), blockState.getValue(BlockStateProperties.HORIZONTAL_FACING)));
+                template.setBlockState(blockPos, Blocks.AIR.defaultBlockState());
             } else if (block instanceof TesterWool) {
-                testerWools.add(blockPos.toImmutable());
+                testerWools.add(blockPos.immutable());
             }
         });
     }
-    public void setWorld(ServerWorld world) {
+    public void setWorld(ServerLevel world) {
         this.world = world;
     }
 
@@ -77,7 +77,7 @@ public class SabotageMap {
         for (ChestInfo chestInfo : chestSpawns) {
             if (chestCount > 0) {
                 chestCount--;
-                world.setBlockState(chestInfo.pos(), SABOTAGE_CHEST.getDefaultState().with(Properties.HORIZONTAL_FACING, chestInfo.direction()));
+                world.setBlockAndUpdate(chestInfo.pos(), SABOTAGE_CHEST.defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, chestInfo.direction()));
             } else {
                 break;
             }
@@ -99,17 +99,17 @@ public class SabotageMap {
         return this.spawns;
     }
 
-    public Map<PlayerRef, Vec3d> getPlayerSpawns() {
+    public Map<PlayerRef, Vec3> getPlayerSpawns() {
         return this.playerSpawnPos;
     }
 
-    public void spawnPlayer(ServerWorld world, ServerPlayerEntity plr) {
+    public void spawnPlayer(ServerLevel world, ServerPlayer plr) {
         TemplateRegion spawn = spawns.get(new Random().nextInt(spawns.size()));
-        Vec3d pos = spawn.getBounds().centerBottom();
-        plr.teleport(world, pos.getX(), pos.getY(), pos.getZ(), new HashSet<>(), spawn.getData().getFloat("Rotation", 0f), 0, true);
+        Vec3 pos = spawn.getBounds().centerBottom();
+        plr.teleportTo(world, pos.x(), pos.y(), pos.z(), new HashSet<>(), spawn.getData().getFloatOr("Rotation", 0f), 0, true);
         plr.setOnGround(true);
-        plr.setVelocity(0,0,0);
-        this.playerSpawnPos.put(new PlayerRef(plr.getUuid()), pos);
+        plr.setDeltaMovement(0,0,0);
+        this.playerSpawnPos.put(new PlayerRef(plr.getUUID()), pos);
     }
 
     public ChunkGenerator asChunkGenerator(MinecraftServer server) {

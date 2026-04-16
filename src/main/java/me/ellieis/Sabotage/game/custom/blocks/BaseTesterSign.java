@@ -3,29 +3,29 @@ package me.ellieis.Sabotage.game.custom.blocks;
 import eu.pb4.polymer.core.api.block.PolymerBlockUtils;
 import me.ellieis.Sabotage.Sabotage;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
-import net.minecraft.block.entity.BlockEntityType;
-import net.minecraft.block.entity.SignText;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtString;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
-import net.minecraft.util.DyeColor;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.entity.SignText;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.ChatFormatting;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.Level;
 
 public class BaseTesterSign  {
-    public static void onUse(World world, PlayerEntity player, BlockPos pos) {
-        if (!world.isClient()) {
-            ServerPlayerEntity plr = (ServerPlayerEntity) player;
+    public static void onUse(Level world, Player player, BlockPos pos) {
+        if (!world.isClientSide()) {
+            ServerPlayer plr = (ServerPlayer) player;
 
             for (SabotageActive game : Sabotage.activeGames) {
                 if (game.getWorld().equals(world)) {
-                    if (!game.testEntity(plr, pos.toCenterPos())) {
-                        plr.sendMessage(Text.translatable("sabotage.tester.fail").formatted(Formatting.YELLOW));
+                    if (!game.testEntity(plr, pos.getCenter())) {
+                        plr.sendSystemMessage(Component.translatable("sabotage.tester.fail").withStyle(ChatFormatting.YELLOW));
                     }
                     break;
                 }
@@ -33,36 +33,36 @@ public class BaseTesterSign  {
         }
     }
 
-    public static void onPlaced(World world, BlockPos pos) {
-        if (!world.isClient()) {
+    public static void onPlaced(Level world, BlockPos pos) {
+        if (!world.isClientSide()) {
             TesterSignBlockEntity be = (TesterSignBlockEntity) world.getBlockEntity(pos);
-            Text[] text = {Text.literal("Click"), Text.literal("this sign"), Text.literal("to start"), Text.literal("test")};
+            Component[] text = {Component.literal("Click"), Component.literal("this sign"), Component.literal("to start"), Component.literal("test")};
             be.setText(new SignText(text, text, DyeColor.RED, true), true);
             be.setWaxed(true);
         }
     }
 
-    private static NbtCompound createSignTextNbt() {
-        NbtCompound main = new NbtCompound();
-        NbtList text = new NbtList();
-        text.add(NbtString.of("Click this"));
-        text.add(NbtString.of("sign to"));
-        text.add(NbtString.of("start the"));
-        text.add(NbtString.of("test"));
+    private static CompoundTag createSignTextNbt() {
+        CompoundTag main = new CompoundTag();
+        ListTag text = new ListTag();
+        text.add(StringTag.valueOf("Click this"));
+        text.add(StringTag.valueOf("sign to"));
+        text.add(StringTag.valueOf("start the"));
+        text.add(StringTag.valueOf("test"));
         main.put("messages", text);
         main.putString("color", "red");
         main.putBoolean("has_glowing_text", true);
         return main;
     }
     public static Packet<?> getBlockEntityPacket(BlockPos pos) {
-        NbtCompound main = new NbtCompound();
+        CompoundTag main = new CompoundTag();
         main.putString("id", "minecraft:sign");
         main.putBoolean("is_waxed", true);
         main.putInt("x", pos.getX());
         main.putInt("y", pos.getY());
         main.putInt("z", pos.getZ());
-        NbtCompound front = createSignTextNbt();
-        NbtCompound back = createSignTextNbt();
+        CompoundTag front = createSignTextNbt();
+        CompoundTag back = createSignTextNbt();
         main.put("front_text", front);
         main.put("back_text", back);
         return PolymerBlockUtils.createBlockEntityPacket(pos, BlockEntityType.SIGN, main);

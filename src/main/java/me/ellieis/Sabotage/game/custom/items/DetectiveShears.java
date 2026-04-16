@@ -3,36 +3,37 @@ package me.ellieis.Sabotage.game.custom.items;
 import eu.pb4.polymer.core.api.item.PolymerItem;
 import me.ellieis.Sabotage.Sabotage;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Hand;
-import net.minecraft.util.Identifier;
-import net.minecraft.world.World;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Item.Properties;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.Level;
 import xyz.nucleoid.packettweaker.PacketContext;
 
 public class DetectiveShears extends Item implements PolymerItem {
-    public DetectiveShears(Settings settings) {
+    public DetectiveShears(Properties settings) {
         super(settings);
     }
 
     @Override
-    public ActionResult useOnEntity(ItemStack item, PlayerEntity plr, LivingEntity entity, Hand hand) {
-        World world = plr.getEntityWorld();
-        if (!world.isClient()) {
+    public InteractionResult interactLivingEntity(ItemStack item, Player plr, LivingEntity entity, InteractionHand hand) {
+        Level world = plr.level();
+        if (!world.isClientSide()) {
             for (SabotageActive game : Sabotage.activeGames) {
-                if (game.getWorld().equals(world) && (item.getMaxDamage() - item.getDamage()) > 1) {
-                    item.setDamage(item.getDamage() + 50);
-                    game.testEntity((ServerPlayerEntity) plr, entity);
+                if (game.getWorld().equals(world) && (item.getMaxDamage() - item.getDamageValue()) > 1) {
+                    item.setDamageValue(item.getDamageValue() + 50);
+                    game.testEntity((ServerPlayer) plr, entity);
                     break;
                 }
             }
         }
-        return ActionResult.FAIL;
+        return InteractionResult.FAIL;
     }
 
     @Override

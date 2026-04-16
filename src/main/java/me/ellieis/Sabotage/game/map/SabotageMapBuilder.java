@@ -2,8 +2,8 @@ package me.ellieis.Sabotage.game.map;
 
 import me.ellieis.Sabotage.game.config.SabotageConfig;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import xyz.nucleoid.map_templates.MapTemplate;
 import xyz.nucleoid.map_templates.MapTemplateSerializer;
 import xyz.nucleoid.plasmid.api.game.GameOpenException;
@@ -16,7 +16,7 @@ public class SabotageMapBuilder {
             MapTemplate template = MapTemplateSerializer.loadFromResource(server, identifier);
             return new SabotageMap(template, config, playerCount);
         } catch(IOException exception) {
-            throw new GameOpenException(Text.literal("Failed to load map " + identifier), exception);
+            throw new GameOpenException(Component.literal("Failed to load map " + identifier), exception);
         }
     }
     public static WaitingMap buildWaiting(MinecraftServer server, Identifier identifier, SabotageConfig config) {
@@ -24,7 +24,7 @@ public class SabotageMapBuilder {
             MapTemplate template = MapTemplateSerializer.loadFromResource(server, identifier);
             return new WaitingMap(template);
         } catch(IOException exception) {
-            throw new GameOpenException(Text.literal("Failed to load waiting lobby " + identifier), exception);
+            throw new GameOpenException(Component.literal("Failed to load waiting lobby " + identifier), exception);
         }
     }
 }

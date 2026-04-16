@@ -4,9 +4,9 @@ import me.ellieis.Sabotage.game.config.SabotageConfig;
 import me.ellieis.Sabotage.game.map.SabotageMapBuilder;
 import me.ellieis.Sabotage.game.map.WaitingMap;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameMode;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.GameType;
 import xyz.nucleoid.fantasy.RuntimeWorldConfig;
 import xyz.nucleoid.plasmid.api.game.*;
 import xyz.nucleoid.plasmid.api.game.common.GameWaitingLobby;
@@ -26,9 +26,9 @@ public class SabotageWaiting {
     private final SabotageConfig config;
     private final GameSpace gameSpace;
     private final WaitingMap map;
-    private final ServerWorld world;
+    private final ServerLevel world;
 
-    public SabotageWaiting(SabotageConfig config, GameSpace gameSpace, WaitingMap map, ServerWorld world) {
+    public SabotageWaiting(SabotageConfig config, GameSpace gameSpace, WaitingMap map, ServerLevel world) {
         this.config = config;
         this.gameSpace = gameSpace;
         this.map = map;
@@ -76,9 +76,9 @@ public class SabotageWaiting {
         return GameResult.ok();
     }
     private JoinAcceptorResult acceptPlayer(JoinAcceptor acceptor) {
-        return acceptor.teleport(this.world, Vec3d.ZERO).thenRunForEach(plr -> {
+        return acceptor.teleport(this.world, Vec3.ZERO).thenRunForEach(plr -> {
             map.spawnPlayer(world, plr);
-            plr.changeGameMode(GameMode.ADVENTURE);
+            plr.setGameMode(GameType.ADVENTURE);
         });
     }
 }

@@ -6,21 +6,21 @@ import me.ellieis.Sabotage.game.config.SabotageConfig;
 import me.ellieis.Sabotage.game.config.SaboteurConfig;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
 import me.ellieis.Sabotage.game.statistics.KarmaManager;
-import me.ellieis.Sabotage.mixin.MannequinEntityAccessor;
-import net.minecraft.component.type.ProfileComponent;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityPose;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.decoration.MannequinEntity;
-import net.minecraft.network.packet.s2c.play.*;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
-import net.minecraft.world.GameMode;
+import me.ellieis.Sabotage.mixin.MannequinAccessor;
+import net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket;
+import net.minecraft.world.item.component.ResolvableProfile;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.Pose;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.decoration.Mannequin;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
+import net.minecraft.world.level.GameType;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
 import xyz.nucleoid.plasmid.api.game.GameSpacePlayers;
 import xyz.nucleoid.stimuli.event.EventResult;
@@ -35,9 +35,9 @@ public class CombatManager {
     TeamManager teamManager;
     SabotageConfig config;
     SabotageActive game;
-    private final HashMap<ServerPlayerEntity, BodyData> bodies = new HashMap<>();
+    private final HashMap<ServerPlayer, BodyData> bodies = new HashMap<>();
 
-    private final HashMap<ServerPlayerEntity, ArrayList<CombatLog>> playerDamageLog = new HashMap<>();
+    private final HashMap<ServerPlayer, ArrayList<CombatLog>> playerDamageLog = new HashMap<>();
 
     public CombatManager(GameSpace gameSpace, TeamManager teamManager, KarmaManager karmaManager, SabotageConfig config, SabotageActive game) {
         this.gameSpace = gameSpace;
@@ -48,21 +48,21 @@ public class CombatManager {
         gameSpace.getPlayers().forEach((plr) -> playerDamageLog.put(plr, new ArrayList<>()));
     }
 
-    public void onDamage(ServerPlayerEntity plr, DamageSource damageSource, float damageAmount) {
+    public void onDamage(ServerPlayer plr, DamageSource damageSource, float damageAmount) {
         Roles receiverRole = teamManager.getPlayerRole(plr);
         if (receiverRole == Roles.DETECTIVE) {
-            Entity attackerEntity = damageSource.getAttacker();
-            if (attackerEntity instanceof ServerPlayerEntity attacker) {
+            Entity attackerEntity = damageSource.getEntity();
+            if (attackerEntity instanceof ServerPlayer attacker) {
                 Roles attackerRole = teamManager.getPlayerRole(attacker);
                 if (attackerRole != Roles.SABOTEUR) {
-                    attacker.sendMessage(Text.translatable("sabotage.damage_detective_message", Text.translatable("sabotage.detective").formatted(Formatting.BLUE)));
-                    attacker.playSound(SoundEvents.BLOCK_ANVIL_PLACE, 1, 0.5f);
+                    attacker.sendSystemMessage(Component.translatable("sabotage.damage_detective_message", Component.translatable("sabotage.detective").withStyle(ChatFormatting.BLUE)));
+                    attacker.playSound(SoundEvents.ANVIL_PLACE, 1, 0.5f);
                 }
             }
         }
 
-        Entity attackerEntity = damageSource.getAttacker();
-        if (attackerEntity instanceof ServerPlayerEntity attacker) {
+        Entity attackerEntity = damageSource.getEntity();
+        if (attackerEntity instanceof ServerPlayer attacker) {
             ArrayList<CombatLog> log = playerDamageLog.get(plr);
             if (log != null) {
                 log.add(new CombatLog(attacker, damageAmount, gameSpace.getTime()));
@@ -70,22 +70,22 @@ public class CombatManager {
         }
     }
 
-    public EventResult onDeath(ServerPlayerEntity plr, DamageSource damageSource) {
-        Entity entityAttacker = damageSource.getAttacker();
+    public EventResult onDeath(ServerPlayer plr, DamageSource damageSource) {
+        Entity entityAttacker = damageSource.getEntity();
         Roles plrRole = teamManager.getPlayerRole(plr);
-        plr.changeGameMode(GameMode.SPECTATOR);
-        plr.playSound(SoundEvents.ENTITY_COW_DEATH, 1, 0.7f);
+        plr.setGameMode(GameType.SPECTATOR);
+        plr.playSound(SoundEvents.COW_DEATH, 1, 0.7f);
         createPlayerBody(plr, game.getWorld(), plrRole);
         teamManager.dead.add(plr);
         GameSpacePlayers plrSet = gameSpace.getPlayers();
-        plrSet.forEach((otherPlr) -> teamManager.playerTeamPacket(teamManager.deadTeam, otherPlr, plr, TeamS2CPacket.Operation.ADD));
+        plrSet.forEach((otherPlr) -> teamManager.playerTeamPacket(teamManager.deadTeam, otherPlr, plr, ClientboundSetPlayerTeamPacket.Action.ADD));
         if (plrRole == Roles.SABOTEUR) {
             plrSet.forEach((otherPlr) -> {
                 Roles role = teamManager.getPlayerRole(otherPlr);
                 teamManager.playerTeamPacket((role == Roles.DETECTIVE) ?
                                 teamManager.det : (role == Roles.NONE) ?
                                 teamManager.deadTeam : teamManager.unknown,
-                        plr, otherPlr, TeamS2CPacket.Operation.ADD);
+                        plr, otherPlr, ClientboundSetPlayerTeamPacket.Action.ADD);
             });
         }
 
@@ -93,7 +93,7 @@ public class CombatManager {
             return EventResult.DENY;
         }
         ArrayList<CombatLog> log = playerDamageLog.get(plr);
-        HashMap<ServerPlayerEntity, Float> accumulatedDamage = new HashMap<>();
+        HashMap<ServerPlayer, Float> accumulatedDamage = new HashMap<>();
         if (log != null) {
             // filter damage that was more than a minute ago
             log.stream().filter((combatLog) -> (gameSpace.getTime() - combatLog.timeOfAttack() <= 1200)).forEach((combatLog -> {
@@ -107,13 +107,13 @@ public class CombatManager {
                 accumulatedDamage.replace(combatLog.attacker(), damage);
             }));
         }
-        ServerPlayerEntity finalHit;
-        if (entityAttacker instanceof ServerPlayerEntity attacker) {
+        ServerPlayer finalHit;
+        if (entityAttacker instanceof ServerPlayer attacker) {
             finalHit = attacker;
         } else {
             finalHit = null;
         }
-        accumulatedDamage.forEach((ServerPlayerEntity attacker, Float damage) -> {
+        accumulatedDamage.forEach((ServerPlayer attacker, Float damage) -> {
             Roles attackerRole = teamManager.getPlayerRole(attacker);
             float karmaRatio = damage / plr.getMaxHealth();
             boolean isAssist = true;
@@ -128,21 +128,21 @@ public class CombatManager {
                     switch(plrRole) {
                         case INNOCENT -> {
                             karmaManager.incrementKarma(attacker, config.innocentKarmaAward());
-                            attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_OPEN_SHUTTER, 1, 1f);
-                            attacker.sendMessage(createAttackerKillMessage(plr, Math.round(config.innocentKarmaAward() * karmaRatio), isAssist));
+                            attacker.playSound(SoundEvents.TRIAL_SPAWNER_OPEN_SHUTTER, 1, 1f);
+                            attacker.sendSystemMessage(createAttackerKillMessage(plr, Math.round(config.innocentKarmaAward() * karmaRatio), isAssist));
                         }
 
                         case DETECTIVE -> {
                             karmaManager.incrementKarma(attacker, config.detectiveKarmaAward());
-                            attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_OPEN_SHUTTER, 1, 1f);
-                            attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_DETECT_PLAYER, 0.5f, 1f);
-                            attacker.sendMessage(createAttackerKillMessage(plr, Math.round(config.detectiveKarmaAward() * karmaRatio), isAssist));
+                            attacker.playSound(SoundEvents.TRIAL_SPAWNER_OPEN_SHUTTER, 1, 1f);
+                            attacker.playSound(SoundEvents.TRIAL_SPAWNER_DETECT_PLAYER, 0.5f, 1f);
+                            attacker.sendSystemMessage(createAttackerKillMessage(plr, Math.round(config.detectiveKarmaAward() * karmaRatio), isAssist));
                         }
 
                         case SABOTEUR -> {
                             karmaManager.decrementKarma(attacker, config.saboteurKarmaPenalty());
-                            attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_DETECT_PLAYER, 1, 1f);
-                            attacker.sendMessage(createAttackerKillMessage(plr, Math.round(-config.saboteurKarmaPenalty() * karmaRatio), isAssist));
+                            attacker.playSound(SoundEvents.TRIAL_SPAWNER_DETECT_PLAYER, 1, 1f);
+                            attacker.sendSystemMessage(createAttackerKillMessage(plr, Math.round(-config.saboteurKarmaPenalty() * karmaRatio), isAssist));
                         }
                     }
                 }
@@ -173,56 +173,56 @@ public class CombatManager {
         return EventResult.PASS;
     }
 
-    private Text createAttackerKillMessage(ServerPlayerEntity plr, int karma, boolean assist) {
+    private Component createAttackerKillMessage(ServerPlayer plr, int karma, boolean assist) {
         Roles role = teamManager.getPlayerRole(plr);
-        Formatting victimColor = TeamManager.getRoleColor(role);
+        ChatFormatting victimColor = TeamManager.getRoleColor(role);
         if (assist) {
-            return Text.translatable("sabotage.kill_message.assist", plr.getName().copy().formatted(victimColor), Text.literal("(" + karma + " karma)").formatted((karma >= 0) ? Formatting.GREEN : Formatting.RED)).formatted(Formatting.YELLOW);
+            return Component.translatable("sabotage.kill_message.assist", plr.getName().copy().withStyle(victimColor), Component.literal("(" + karma + " karma)").withStyle((karma >= 0) ? ChatFormatting.GREEN : ChatFormatting.RED)).withStyle(ChatFormatting.YELLOW);
         }
-        return Text.translatable(
+        return Component.translatable(
                 "sabotage.kill_message_attacker",
-                plr.getName().copy().formatted(victimColor),
-                Text.literal("(" + karma + " karma)").formatted((karma >= 0) ? Formatting.GREEN : Formatting.RED)).formatted(Formatting.YELLOW);
+                plr.getName().copy().withStyle(victimColor),
+                Component.literal("(" + karma + " karma)").withStyle((karma >= 0) ? ChatFormatting.GREEN : ChatFormatting.RED)).withStyle(ChatFormatting.YELLOW);
     }
 
-    private void awardPlayerKill(ServerPlayerEntity attacker, ServerPlayerEntity plr, Roles plrRole, int innocentKarma, int detectiveKarma, int saboteurKarma, boolean assist) {
+    private void awardPlayerKill(ServerPlayer attacker, ServerPlayer plr, Roles plrRole, int innocentKarma, int detectiveKarma, int saboteurKarma, boolean assist) {
         // attacker is confirmed innocent or detective
         switch(plrRole) {
             case INNOCENT -> {
                 karmaManager.decrementKarma(attacker, innocentKarma);
-                attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_DETECT_PLAYER, 1, 1);
-                attacker.sendMessage(createAttackerKillMessage(plr, -innocentKarma, assist));
+                attacker.playSound(SoundEvents.TRIAL_SPAWNER_DETECT_PLAYER, 1, 1);
+                attacker.sendSystemMessage(createAttackerKillMessage(plr, -innocentKarma, assist));
             }
 
             case DETECTIVE -> {
                 karmaManager.decrementKarma(attacker, detectiveKarma);
-                attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_DETECT_PLAYER, 1, 1);
-                attacker.sendMessage(createAttackerKillMessage(plr, -detectiveKarma, assist));
+                attacker.playSound(SoundEvents.TRIAL_SPAWNER_DETECT_PLAYER, 1, 1);
+                attacker.sendSystemMessage(createAttackerKillMessage(plr, -detectiveKarma, assist));
             }
 
             case SABOTEUR -> {
                 karmaManager.incrementKarma(attacker, saboteurKarma);
-                attacker.playSound(SoundEvents.BLOCK_TRIAL_SPAWNER_OPEN_SHUTTER, 1, 1);
-                attacker.sendMessage(createAttackerKillMessage(plr, saboteurKarma, assist));
+                attacker.playSound(SoundEvents.TRIAL_SPAWNER_OPEN_SHUTTER, 1, 1);
+                attacker.sendSystemMessage(createAttackerKillMessage(plr, saboteurKarma, assist));
             }
         }
     }
 
-    private void createPlayerBody(ServerPlayerEntity plr, ServerWorld world, Roles plrRole) {
-        MannequinEntity mannequin = new MannequinEntity(EntityType.MANNEQUIN, world);
-        ((MannequinEntityAccessor) mannequin).sabotage$setMannequinProfile(ProfileComponent.ofDynamic(plr.getUuid()));
-        mannequin.setPos(plr.getX(), plr.getY(), plr.getZ());
-        mannequin.setPose(EntityPose.SLEEPING);
+    private void createPlayerBody(ServerPlayer plr, ServerLevel world, Roles plrRole) {
+        Mannequin mannequin = new Mannequin(EntityType.MANNEQUIN, world);
+        ((MannequinAccessor) mannequin).sabotage$setMannequinProfile(ResolvableProfile.createUnresolved(plr.getUUID()));
+        mannequin.setPosRaw(plr.getX(), plr.getY(), plr.getZ());
+        mannequin.setPose(Pose.SLEEPING);
         BodyData bodyData = new BodyData(plrRole, mannequin);
-        world.spawnEntity(mannequin);
+        world.addFreshEntity(mannequin);
         bodies.put(plr, bodyData);
 
     }
 
     public BodyResult getBodyRole(LivingEntity entity) {
         AtomicReference<Roles> role = new AtomicReference<>(Roles.NONE);
-        AtomicReference<ServerPlayerEntity> plrAtom = new AtomicReference<>();
-        if (entity instanceof MannequinEntity) {
+        AtomicReference<ServerPlayer> plrAtom = new AtomicReference<>();
+        if (entity instanceof Mannequin) {
             bodies.forEach((plr, bodyData) -> {
                 if (bodyData.mannequin().equals(entity)) {
                     role.set(bodyData.role());
@@ -233,10 +233,10 @@ public class CombatManager {
         return new BodyResult(plrAtom.get(), role.get());
     }
 
-    record CombatLog(ServerPlayerEntity attacker, float damage, long timeOfAttack) {
+    record CombatLog(ServerPlayer attacker, float damage, long timeOfAttack) {
 
     }
 
-    record BodyData(Roles role, MannequinEntity mannequin) {
+    record BodyData(Roles role, Mannequin mannequin) {
     }
 }

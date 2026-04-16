@@ -14,50 +14,57 @@ import me.ellieis.Sabotage.game.map.SabotageMapBuilder;
 import me.ellieis.Sabotage.game.statistics.KarmaManager;
 import me.ellieis.Sabotage.game.utils.Task;
 import me.ellieis.Sabotage.game.utils.TaskScheduler;
-import net.minecraft.block.*;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.TntEntity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.decoration.MannequinEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.player.ItemCooldownManager;
-import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.ItemPlacementContext;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.network.message.MessageType;
-import net.minecraft.network.message.SentMessage;
-import net.minecraft.network.message.SignedMessage;
-import net.minecraft.network.packet.c2s.common.CustomClickActionC2SPacket;
-import net.minecraft.network.packet.s2c.play.PositionFlag;
-import net.minecraft.network.packet.s2c.play.WaypointS2CPacket;
-import net.minecraft.particle.ParticleTypes;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.scoreboard.number.BlankNumberFormat;
-import net.minecraft.screen.ScreenTexts;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundCategory;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Hand;
-import net.minecraft.util.hit.BlockHitResult;
-import net.minecraft.util.hit.EntityHitResult;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.Vec3i;
-import net.minecraft.world.GameMode;
-import net.minecraft.world.rule.GameRules;
-import net.minecraft.world.World;
-import net.minecraft.world.explosion.Explosion;
-import net.minecraft.world.waypoint.TrackedWaypoint;
-import net.minecraft.world.waypoint.Waypoint;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.item.PrimedTnt;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.decoration.Mannequin;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
+import net.minecraft.world.item.ItemCooldowns;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.context.BlockPlaceContext;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.network.chat.ChatType;
+import net.minecraft.network.chat.OutgoingChatMessage;
+import net.minecraft.network.chat.PlayerChatMessage;
+import net.minecraft.network.protocol.common.ServerboundCustomClickActionPacket;
+import net.minecraft.world.entity.Relative;
+import net.minecraft.network.protocol.game.ClientboundTrackedWaypointPacket;
+import net.minecraft.core.particles.ParticleTypes;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.numbers.BlankFormat;
+import net.minecraft.network.chat.CommonComponents;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.sounds.SoundSource;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.ChatFormatting;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.level.block.*;
+import net.minecraft.world.level.block.BarrelBlock;
+import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CraftingTableBlock;
+import net.minecraft.world.level.block.GrindstoneBlock;
+import net.minecraft.world.level.block.TrappedChestBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
+import net.minecraft.core.Vec3i;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.gamerules.GameRules;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.Explosion;
+import net.minecraft.world.waypoints.TrackedWaypoint;
+import net.minecraft.world.waypoints.Waypoint;
 import org.joml.Vector3i;
 import xyz.nucleoid.fantasy.RuntimeWorldConfig;
 import xyz.nucleoid.plasmid.api.game.GameActivity;
@@ -101,7 +108,7 @@ public class SabotageActive {
     private final SabotageConfig config;
     public final GameSpace gameSpace;
     private final SabotageMap map;
-    private final ServerWorld world;
+    private final ServerLevel world;
     public final GameStatisticBundle stats;
     private final KarmaManager karmaManager;
     public final TaskScheduler taskScheduler;
@@ -118,10 +125,10 @@ public class SabotageActive {
     public final TeamManager teamManager;
     private final ChatManager chatManager;
     private final CombatManager combatManager;
-    private final HashMap<BlockPos, ServerPlayerEntity> trappedChests = new HashMap<>();
-    public final ArrayList<ServerPlayerEntity> testerBypassers = new ArrayList<>();
-    public final ArrayList<ServerPlayerEntity> playersWithTracker = new ArrayList<>();
-    public SabotageActive(SabotageConfig config, GameSpace gameSpace, SabotageMap map, ServerWorld world, GameActivity activity) {
+    private final HashMap<BlockPos, ServerPlayer> trappedChests = new HashMap<>();
+    public final ArrayList<ServerPlayer> testerBypassers = new ArrayList<>();
+    public final ArrayList<ServerPlayer> playersWithTracker = new ArrayList<>();
+    public SabotageActive(SabotageConfig config, GameSpace gameSpace, SabotageMap map, ServerLevel world, GameActivity activity) {
         this.config = config;
         this.gameSpace = gameSpace;
         this.map = map;
@@ -138,7 +145,7 @@ public class SabotageActive {
         Sabotage.activeGames.add(this);
     }
 
-    public ServerWorld getWorld() {
+    public ServerLevel getWorld() {
         return world;
     }
     private static void gameStartedRules(GameActivity activity) {
@@ -162,11 +169,11 @@ public class SabotageActive {
         activity.listen(BlockRandomTickEvent.EVENT, (_block, _pos, _state) -> EventResult.DENY);
         activity.listen(FlowerPotModifyEvent.EVENT, ((_plr, _hand, _result) -> EventResult.DENY));
         activity.listen(BlockUseEvent.EVENT, (plr, _hand, result) -> {
-            ServerWorld world = plr.getEntityWorld();
+            ServerLevel world = plr.level();
             Block block = world.getBlockState(result.getBlockPos()).getBlock();
             // this is possibly the worst code i've written in my life
             if (block instanceof AnvilBlock || block instanceof AbstractFurnaceBlock ||
-                    block instanceof StonecutterBlock || block instanceof ChiseledBookshelfBlock ||
+                    block instanceof StonecutterBlock || block instanceof ChiseledBookShelfBlock ||
                     block instanceof BarrelBlock || block instanceof BedBlock ||
                     block instanceof GrindstoneBlock || block instanceof CraftingTableBlock
             ) {
@@ -181,7 +188,7 @@ public class SabotageActive {
             return "";
         }
         String result = "";
-        for (ServerPlayerEntity plr : plrs) {
+        for (ServerPlayer plr : plrs) {
             result = result + plr.getName().getString() + ", ";
         }
         // get rid of the last comma
@@ -202,7 +209,7 @@ public class SabotageActive {
     }
 
     public void updateSidebars() {
-        long timeLeft = (long) Math.abs(Math.floor((world.getTime() / 20) - (startTime / 20)) - config.countdownTime() - config.gracePeriod() - config.timeLimit());
+        long timeLeft = (long) Math.abs(Math.floor((world.getGameTime() / 20) - (startTime / 20)) - config.countdownTime() - config.gracePeriod() - config.timeLimit());
         long minutes = timeLeft / 60;
         String seconds;
         if (timeLeft % 60 > 10) {
@@ -213,45 +220,45 @@ public class SabotageActive {
 
         // saboteurs
         saboteurSidebar.set(content -> {
-            content.add(ScreenTexts.EMPTY);
-            content.add(Text.translatable("sabotage.sidebar.role", Text.translatable("sabotage.saboteur").formatted(Formatting.RED)));
-            content.add(Text.translatable("sabotage.sidebar.role.desc", Text.translatable("sabotage.innocents").formatted(Formatting.GREEN)));
-            content.add(ScreenTexts.EMPTY);
-            content.add(Text.translatable("sabotage.sidebar.time_left", minutes, seconds));
+            content.add(CommonComponents.EMPTY);
+            content.add(Component.translatable("sabotage.sidebar.role", Component.translatable("sabotage.saboteur").withStyle(ChatFormatting.RED)));
+            content.add(Component.translatable("sabotage.sidebar.role.desc", Component.translatable("sabotage.innocents").withStyle(ChatFormatting.GREEN)));
+            content.add(CommonComponents.EMPTY);
+            content.add(Component.translatable("sabotage.sidebar.time_left", minutes, seconds));
         });
 
         // detectives
         detectiveSidebar.set(content -> {
-            content.add(ScreenTexts.EMPTY);
-            content.add(Text.translatable("sabotage.sidebar.role", Text.translatable("sabotage.detective").formatted(Formatting.BLUE)));
-            content.add(Text.translatable("sabotage.sidebar.role.desc", Text.translatable("sabotage.saboteurs").formatted(Formatting.RED)));
-            content.add(ScreenTexts.EMPTY);
-            content.add(Text.translatable("sabotage.sidebar.time_left", minutes, seconds));
+            content.add(CommonComponents.EMPTY);
+            content.add(Component.translatable("sabotage.sidebar.role", Component.translatable("sabotage.detective").withStyle(ChatFormatting.BLUE)));
+            content.add(Component.translatable("sabotage.sidebar.role.desc", Component.translatable("sabotage.saboteurs").withStyle(ChatFormatting.RED)));
+            content.add(CommonComponents.EMPTY);
+            content.add(Component.translatable("sabotage.sidebar.time_left", minutes, seconds));
         });
 
         // innocents
         innocentSidebar.set(content -> {
-            content.add(ScreenTexts.EMPTY);
-            content.add(Text.translatable("sabotage.sidebar.role", Text.translatable("sabotage.innocent").formatted(Formatting.GREEN)));
-            content.add(Text.translatable("sabotage.sidebar.role.desc", Text.translatable("sabotage.saboteurs").formatted(Formatting.RED)));
-            content.add(ScreenTexts.EMPTY);
-            content.add(Text.translatable("sabotage.sidebar.time_left", minutes, seconds));
+            content.add(CommonComponents.EMPTY);
+            content.add(Component.translatable("sabotage.sidebar.role", Component.translatable("sabotage.innocent").withStyle(ChatFormatting.GREEN)));
+            content.add(Component.translatable("sabotage.sidebar.role.desc", Component.translatable("sabotage.saboteurs").withStyle(ChatFormatting.RED)));
+            content.add(CommonComponents.EMPTY);
+            content.add(Component.translatable("sabotage.sidebar.time_left", minutes, seconds));
         });
 
         // dead
         globalSidebar.set(content -> {
-            content.add(ScreenTexts.EMPTY);
-            content.add(Text.translatable("sabotage.sidebar.dead"));
-            content.add(Text.translatable("sabotage.sidebar.dead.desc"));
-            content.add(ScreenTexts.EMPTY);
-            content.add(Text.translatable("sabotage.sidebar.time_left", minutes, seconds));
+            content.add(CommonComponents.EMPTY);
+            content.add(Component.translatable("sabotage.sidebar.dead"));
+            content.add(Component.translatable("sabotage.sidebar.dead.desc"));
+            content.add(CommonComponents.EMPTY);
+            content.add(Component.translatable("sabotage.sidebar.time_left", minutes, seconds));
         });
 
 
     }
 
     public void setSidebars() {
-        MutableText title = Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD);
+        MutableComponent title = Component.translatable("gameType.sabotage.sabotage").withStyle(ChatFormatting.GOLD);
         saboteurSidebar = widgets.addSidebar(title);
         saboteurSidebar.setPriority(Sidebar.Priority.MEDIUM);
         detectiveSidebar = widgets.addSidebar(title);
@@ -266,10 +273,10 @@ public class SabotageActive {
             innocentSidebar.removePlayer(plr);
         });
 
-        globalSidebar.setDefaultNumberFormat(BlankNumberFormat.INSTANCE);
-        innocentSidebar.setDefaultNumberFormat(BlankNumberFormat.INSTANCE);
-        detectiveSidebar.setDefaultNumberFormat(BlankNumberFormat.INSTANCE);
-        saboteurSidebar.setDefaultNumberFormat(BlankNumberFormat.INSTANCE);
+        globalSidebar.setDefaultNumberFormat(BlankFormat.INSTANCE);
+        innocentSidebar.setDefaultNumberFormat(BlankFormat.INSTANCE);
+        detectiveSidebar.setDefaultNumberFormat(BlankFormat.INSTANCE);
+        saboteurSidebar.setDefaultNumberFormat(BlankFormat.INSTANCE);
 
         teamManager.saboteurs.forEach(plr -> saboteurSidebar.addPlayer(plr));
         teamManager.detectives.forEach(plr -> detectiveSidebar.addPlayer(plr));
@@ -290,28 +297,28 @@ public class SabotageActive {
                 (role == Roles.DETECTIVE) ? Blocks.BLUE_WOOL :
                         (role == Roles.INNOCENT) ? Blocks.GREEN_WOOL : Blocks.WHITE_WOOL;
         for (BlockPos testerWool : map.getTesterWools()) {
-            world.setBlockState(testerWool, wool.getDefaultState());
+            world.setBlockAndUpdate(testerWool, wool.defaultBlockState());
         }
-        taskScheduler.addTask(new Task((int) (world.getTime() + 200), (gameSpace) -> {
+        taskScheduler.addTask(new Task((int) (world.getGameTime() + 200), (gameSpace) -> {
             for (BlockPos testerWool : map.getTesterWools()) {
-                world.setBlockState(testerWool, Blocks.WHITE_WOOL.getDefaultState());
+                world.setBlockAndUpdate(testerWool, Blocks.WHITE_WOOL.defaultBlockState());
             }
             isTesterOnCooldown = false;
         }));
 
     }
 
-    private void applyTestingEffects(ServerPlayerEntity plr, boolean localSoundEffects) {
-        plr.addStatusEffect(new StatusEffectInstance(StatusEffects.BLINDNESS, 100));
-        plr.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, 200));
-        plr.getEntityWorld().spawnParticles(ParticleTypes.ANGRY_VILLAGER, plr.getX(), plr.getY(), plr.getZ(), 10, 0.5, 0.5 ,0.5, 1);
+    private void applyTestingEffects(ServerPlayer plr, boolean localSoundEffects) {
+        plr.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 100));
+        plr.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 200));
+        plr.level().sendParticles(ParticleTypes.ANGRY_VILLAGER, plr.getX(), plr.getY(), plr.getZ(), 10, 0.5, 0.5 ,0.5, 1);
         if (localSoundEffects) {
-            plr.playSound(SoundEvents.ITEM_ARMOR_EQUIP_IRON.value(), 1, 0.5f);
+            plr.playSound(SoundEvents.ARMOR_EQUIP_IRON.value(), 1, 0.5f);
             for (int i = 1; i <= 20; i++) {
                 int finalI = i;
-                taskScheduler.addTask(new Task((int) (world.getTime() + (10 * i)), (gameSpace) -> {
+                taskScheduler.addTask(new Task((int) (world.getGameTime() + (10 * i)), (gameSpace) -> {
                     plr.playSound(
-                            SoundEvents.BLOCK_NOTE_BLOCK_BASS.value(),
+                            SoundEvents.NOTE_BLOCK_BASS.value(),
                             1.0f,
                             (float) Math.min((0.5 + (0.05 * finalI)), 1.4));
                 }));
@@ -320,52 +327,52 @@ public class SabotageActive {
     }
 
     // portable tester on dead bodies
-    public void testBody(ServerPlayerEntity plr, LivingEntity entity) {
+    public void testBody(ServerPlayer plr, LivingEntity entity) {
         BodyResult result = combatManager.getBodyRole(entity);
         if (result.plr() != null) {
             applyTestingEffects(plr, true);
-            int revealTime = (int) world.getTime() + 200;
+            int revealTime = (int) world.getGameTime() + 200;
             Consumer<GameSpace> func = (gameSpace) -> {
                 gameSpace.getPlayers().sendMessage(
-                        Text.translatable("sabotage.detective_shears_reveal",
+                        Component.translatable("sabotage.detective_shears_reveal",
                                 result.plr().getName(),
-                                Text.translatable("sabotage." + (
+                                Component.translatable("sabotage." + (
                                         (result.role() == Roles.SABOTEUR) ? "saboteur" :
                                                 (result.role() == Roles.DETECTIVE) ? "detective" : "innocent")
-                                ).formatted(TeamManager.getRoleColor(result.role()))));
+                                ).withStyle(TeamManager.getRoleColor(result.role()))));
             };
             taskScheduler.addTask(new Task(revealTime, func));
         }
     }
 
     // portable tester only
-    public void testEntity(ServerPlayerEntity plr, LivingEntity entity) {
+    public void testEntity(ServerPlayer plr, LivingEntity entity) {
         if (plr.isSpectator() || entity.isSpectator()) return;
-        if (plr.hasStatusEffect(StatusEffects.SLOWNESS) || entity.hasStatusEffect(StatusEffects.SLOWNESS)) {
+        if (plr.hasEffect(MobEffects.SLOWNESS) || entity.hasEffect(MobEffects.SLOWNESS)) {
             // either player is already testing or being tested, abort
             return;
         }
 
         Roles role = teamManager.getPlayerRole(plr);
         if (role == Roles.DETECTIVE) {
-            if (entity.isPlayer()) {
-                ItemCooldownManager manager = plr.getItemCooldownManager();
-                ItemStack heldStack = plr.getMainHandStack();
-                if (!manager.isCoolingDown(heldStack)) {
-                    manager.set(heldStack, 300);
-                    final ServerPlayerEntity playerEntity = (ServerPlayerEntity) entity;
+            if (entity.isAlwaysTicking()) {
+                ItemCooldowns manager = plr.getCooldowns();
+                ItemStack heldStack = plr.getMainHandItem();
+                if (!manager.isOnCooldown(heldStack)) {
+                    manager.addCooldown(heldStack, 300);
+                    final ServerPlayer playerEntity = (ServerPlayer) entity;
                     applyTestingEffects(plr, true);
                     applyTestingEffects(playerEntity, true);
-                    int revealTime = (int) world.getTime() + 200;
+                    int revealTime = (int) world.getGameTime() + 200;
                     Consumer<GameSpace> func = (gameSpace) -> {
                         Roles plrRole = teamManager.getPlayerRole(playerEntity);
                         gameSpace.getPlayers().sendMessage(
-                                Text.translatable("sabotage.detective_shears_reveal",
+                                Component.translatable("sabotage.detective_shears_reveal",
                                         playerEntity.getName(),
-                                        Text.translatable("sabotage." + (
+                                        Component.translatable("sabotage." + (
                                                 (plrRole == Roles.SABOTEUR) ? "saboteur" :
                                                         (plrRole == Roles.DETECTIVE) ? "detective" : "innocent")
-                                        ).formatted(TeamManager.getRoleColor(plrRole))));
+                                        ).withStyle(TeamManager.getRoleColor(plrRole))));
                     };
                     taskScheduler.addTask(new Task(revealTime, func));
                 }
@@ -375,23 +382,23 @@ public class SabotageActive {
     }
 
     // tester only
-    public boolean testEntity(ServerPlayerEntity plr, Vec3d pos) {
+    public boolean testEntity(ServerPlayer plr, Vec3 pos) {
         if (plr.isSpectator()) return true;
         if (gameState == GameStates.ACTIVE) {
             if (isTesterOnCooldown) {
                 return false;
             }
             isTesterOnCooldown = true;
-            plr.teleport(pos.getX(), pos.getY(), pos.getZ(), true);
+            plr.randomTeleport(pos.x(), pos.y(), pos.z(), true);
             applyTestingEffects(plr, false);
             for (BlockPos blockPos : map.getTesterCloseRegion().getBounds()) {
-                world.setBlockState(blockPos, Blocks.IRON_BARS.getDefaultState());
+                world.setBlockAndUpdate(blockPos, Blocks.IRON_BARS.defaultBlockState());
             }
-            world.playSound(null, plr.getBlockPos(), SoundEvents.BLOCK_IRON_DOOR_CLOSE, SoundCategory.BLOCKS, 1, 0.5f);
-            gameSpace.getPlayers().sendMessage(Text.translatable("sabotage.tester.message", plr.getName(), 10).formatted(Formatting.YELLOW));
-            int revealTime = (int) world.getTime() + 200;
+            world.playSound(null, plr.blockPosition(), SoundEvents.IRON_DOOR_CLOSE, SoundSource.BLOCKS, 1, 0.5f);
+            gameSpace.getPlayers().sendMessage(Component.translatable("sabotage.tester.message", plr.getName(), 10).withStyle(ChatFormatting.YELLOW));
+            int revealTime = (int) world.getGameTime() + 200;
             Consumer<GameSpace> reminder = (gameSpace) -> {
-                gameSpace.getPlayers().sendMessage(Text.translatable("sabotage.tester.message", plr.getName(), 5).formatted(Formatting.YELLOW));
+                gameSpace.getPlayers().sendMessage(Component.translatable("sabotage.tester.message", plr.getName(), 5).withStyle(ChatFormatting.YELLOW));
             };
             Consumer<GameSpace> reveal = (gameSpace) -> {
                 Roles plrRole = teamManager.getPlayerRole(plr);
@@ -402,21 +409,21 @@ public class SabotageActive {
                 // isTesterOnCooldown is changed in this method
                 changeTesterWool(plrRole);
                 for (BlockPos blockPos : map.getTesterCloseRegion().getBounds()) {
-                    world.setBlockState(blockPos, Blocks.AIR.getDefaultState());
+                    world.setBlockAndUpdate(blockPos, Blocks.AIR.defaultBlockState());
                 }
-                world.playSound(null, plr.getBlockPos(), SoundEvents.BLOCK_IRON_DOOR_OPEN, SoundCategory.BLOCKS, 1, 0.5f);
+                world.playSound(null, plr.blockPosition(), SoundEvents.IRON_DOOR_OPEN, SoundSource.BLOCKS, 1, 0.5f);
             };
 
             // sounds for testing
             for (int i = 1; i <= 20; i++) {
                 int finalI = i;
-                taskScheduler.addTask(new Task((int) (world.getTime() + (10 * i)), (gameSpace) -> {
+                taskScheduler.addTask(new Task((int) (world.getGameTime() + (10 * i)), (gameSpace) -> {
                     world.playSound(null,
-                            pos.getX(),
-                            pos.getY(),
-                            pos.getZ(),
-                            SoundEvents.BLOCK_NOTE_BLOCK_BASS.value(),
-                            SoundCategory.BLOCKS,
+                            pos.x(),
+                            pos.y(),
+                            pos.z(),
+                            SoundEvents.NOTE_BLOCK_BASS.value(),
+                            SoundSource.BLOCKS,
                             1.0f,
                             (float) Math.min((0.5 + (0.05 * finalI)), 1.4));
                 }));
@@ -428,10 +435,10 @@ public class SabotageActive {
     }
 
     public void updateWaypoints() {
-        for (ServerPlayerEntity plr2 : playersWithTracker) {
-            for (ServerPlayerEntity plr : getAlivePlayers()) {
-                Vector3i pos = plr.getBlockPos().asVector3i();
-                plr2.networkHandler.sendPacket(WaypointS2CPacket.updatePos(plr.getUuid(), Waypoint.Config.DEFAULT, new Vec3i(pos.x, pos.y, pos.z)));
+        for (ServerPlayer plr2 : playersWithTracker) {
+            for (ServerPlayer plr : getAlivePlayers()) {
+                Vector3i pos = plr.blockPosition().toMutable();
+                plr2.connection.send(ClientboundTrackedWaypointPacket.updateWaypointPosition(plr.getUUID(), Waypoint.Icon.NULL, new Vec3i(pos.x, pos.y, pos.z)));
             }
         }
     }
@@ -442,7 +449,7 @@ public class SabotageActive {
         gameStartedRules(activity);
         getAlivePlayers().forEach(plr -> {
             karmaManager.setKarma(plr, config.startingKarma());
-            plr.setExperiencePoints(plr.getNextLevelExperience() - 1);
+            plr.setExperiencePoints(plr.getXpNeededForNextLevel() - 1);
         });
     }
 
@@ -451,43 +458,43 @@ public class SabotageActive {
         if (gameState == GameStates.ENDED) return;
         PlayerSet plrs = gameSpace.getPlayers();
         taskScheduler.onGameEnd();
-        endTime = world.getTime();
+        endTime = world.getGameTime();
         gameState = GameStates.ENDED;
         rules(activity);
-        plrs.sendMessage(Text.translatable("sabotage.game_end", Text.literal(getPlayerNamesInSet(teamManager.initialSaboteurs)).formatted(Formatting.RED)));
+        plrs.sendMessage(Component.translatable("sabotage.game_end", Component.literal(getPlayerNamesInSet(teamManager.initialSaboteurs)).withStyle(ChatFormatting.RED)));
         if (endReason == EndReason.INNOCENT_WIN) {
-            plrs.sendMessage(Text.translatable(
+            plrs.sendMessage(Component.translatable(
                     "sabotage.game_end.innocents",
-                    Text.translatable("sabotage.innocents").formatted(Formatting.GREEN),
-                    Text.translatable("sabotage.detectives").formatted(Formatting.BLUE),
-                    Text.translatable("sabotage.saboteurs").formatted(Formatting.RED)
+                    Component.translatable("sabotage.innocents").withStyle(ChatFormatting.GREEN),
+                    Component.translatable("sabotage.detectives").withStyle(ChatFormatting.BLUE),
+                    Component.translatable("sabotage.saboteurs").withStyle(ChatFormatting.RED)
             ));
         } else if (endReason == EndReason.SABOTEUR_WIN) {
-            plrs.sendMessage(Text.translatable(
+            plrs.sendMessage(Component.translatable(
                     "sabotage.game_end.saboteurs",
-                    Text.translatable("sabotage.saboteurs").formatted(Formatting.RED),
-                    Text.translatable("sabotage.innocents").formatted(Formatting.GREEN)
+                    Component.translatable("sabotage.saboteurs").withStyle(ChatFormatting.RED),
+                    Component.translatable("sabotage.innocents").withStyle(ChatFormatting.GREEN)
             ));
         } else if (endReason == EndReason.TIMEOUT) {
-            plrs.sendMessage(Text.translatable("sabotage.game_end.none"));
+            plrs.sendMessage(Component.translatable("sabotage.game_end.none"));
         }
-        plrs.playSound(SoundEvents.ENTITY_PLAYER_LEVELUP);
+        plrs.playSound(SoundEvents.PLAYER_LEVELUP);
     }
     public static void Open(GameSpace gameSpace, SabotageConfig config) {
         SabotageMap map = SabotageMapBuilder.buildActive(gameSpace.getServer(), config.map(), config, gameSpace.getPlayers().participants().size());
         RuntimeWorldConfig worldConfig = new RuntimeWorldConfig()
                 .setGenerator(map.asChunkGenerator(gameSpace.getServer()))
-                .setDimensionType(RegistryKey.of(RegistryKeys.DIMENSION_TYPE, config.dimension()))
+                .setDimensionType(ResourceKey.create(Registries.DIMENSION_TYPE, config.dimension()))
                 .setTimeOfDay(config.time());
-        ServerWorld world = gameSpace.getWorlds().add(worldConfig);
+        ServerLevel world = gameSpace.getWorlds().add(worldConfig);
         gameSpace.setActivity(activity -> {
             SabotageActive game = new SabotageActive(config, gameSpace, map, world, activity);
-            game.startTime = world.getTime();
+            game.startTime = world.getGameTime();
             game.widgets = GlobalWidgets.addTo(activity);
-            game.globalSidebar = game.widgets.addSidebar(Text.translatable("gameType.sabotage.sabotage").formatted(Formatting.GOLD));
+            game.globalSidebar = game.widgets.addSidebar(Component.translatable("gameType.sabotage.sabotage").withStyle(ChatFormatting.GOLD));
             game.globalSidebar.setPriority(Sidebar.Priority.LOW);
-            game.globalSidebar.addLines(Text.translatable("sabotage.sidebar.countdown"));
-            world.getGameRules().setValue(GameRules.LOCATOR_BAR, false, gameSpace.getServer());
+            game.globalSidebar.addLines(Component.translatable("sabotage.sidebar.countdown"));
+            world.getGameRules().set(GameRules.LOCATOR_BAR, false, gameSpace.getServer());
             rules(activity);
             activity.listen(GameActivityEvents.TICK, () -> game.onTick(gameSpace.getPlayers()));
             activity.listen(PlayerDeathEvent.EVENT, game::onDeath);
@@ -509,8 +516,8 @@ public class SabotageActive {
                 }
             });
             activity.listen(PlayerC2SPacketEvent.EVENT, (plr, msg) -> {
-                if (msg instanceof CustomClickActionC2SPacket(
-                        net.minecraft.util.Identifier id, java.util.Optional<net.minecraft.nbt.NbtElement> payload
+                if (msg instanceof ServerboundCustomClickActionPacket(
+                        net.minecraft.resources.Identifier id, java.util.Optional<net.minecraft.nbt.Tag> payload
                 )) {
                     if (id.equals(SHOP_BUY_PACKET_ID)) {
                         game.onShopBuy(plr, payload.get().asString().orElseThrow());
@@ -522,26 +529,26 @@ public class SabotageActive {
             map.generateChests();
             PlayerSet plrs = game.gameSpace.getPlayers();
 
-            for (ServerPlayerEntity plr : plrs) {
+            for (ServerPlayer plr : plrs) {
                 game.map.spawnPlayer(world, plr);
                 game.globalSidebar.addPlayer(plr);
-                plr.getInventory().setStack(8, new ItemStack(SHOP_ITEM));
-                plr.setOnFire(false);
-                plr.setFireTicks(0);
+                plr.getInventory().setItem(8, new ItemStack(SHOP_ITEM));
+                plr.setSharedFlagOnFire(false);
+                plr.setRemainingFireTicks(0);
             }
 
         });
     }
 
-    private void onPlayerJoin(ServerPlayerEntity plr) {
+    private void onPlayerJoin(ServerPlayer plr) {
     }
 
-    private EventResult onEntityUse(ServerPlayerEntity plr, Entity entity, Hand hand, EntityHitResult entityHitResult) {
-        ItemStack stack = plr.getStackInHand(hand);
+    private EventResult onEntityUse(ServerPlayer plr, Entity entity, InteractionHand hand, EntityHitResult entityHitResult) {
+        ItemStack stack = plr.getItemInHand(hand);
         if (stack.getItem() instanceof DetectiveShears) {
-            if (!plr.getItemCooldownManager().isCoolingDown(stack)) {
-                if (entity instanceof MannequinEntity mannequin) {
-                    plr.getItemCooldownManager().set(stack, 300);
+            if (!plr.getCooldowns().isOnCooldown(stack)) {
+                if (entity instanceof Mannequin mannequin) {
+                    plr.getCooldowns().addCooldown(stack, 300);
                     testBody(plr, mannequin);
                 }
             }
@@ -549,57 +556,57 @@ public class SabotageActive {
         return EventResult.PASS;
     }
 
-    private EventResult onDamage(ServerPlayerEntity plr, DamageSource damageSource, float damageAmount) {
+    private EventResult onDamage(ServerPlayer plr, DamageSource damageSource, float damageAmount) {
         combatManager.onDamage(plr, damageSource,damageAmount);
         return EventResult.PASS;
     }
 
-    private ActionResult onBlockUse(ServerPlayerEntity player, Hand hand, BlockHitResult blockHitResult) {
-        ItemStack item = player.getStackInHand(hand);
+    private InteractionResult onBlockUse(ServerPlayer player, InteractionHand hand, BlockHitResult blockHitResult) {
+        ItemStack item = player.getItemInHand(hand);
         // TNT ignites on place
-        if (item.isOf(Items.TNT)) {
-            BlockPos pos = blockHitResult.getBlockPos().offset(blockHitResult.getSide());;
-            World world = player.getEntityWorld();
+        if (item.is(Items.TNT)) {
+            BlockPos pos = blockHitResult.getBlockPos().relative(blockHitResult.getDirection());;
+            Level world = player.level();
             if (world.getBlockState(pos).getBlock() == Blocks.AIR) {
-                world.spawnEntity(new TntEntity(world, pos.getX(), pos.getY(), pos.getZ(), player));
-                item.decrement(1);
-                world.playSound(null, pos, SoundEvents.ENTITY_TNT_PRIMED, SoundCategory.BLOCKS);
-                return ActionResult.CONSUME;
+                world.addFreshEntity(new PrimedTnt(world, pos.getX(), pos.getY(), pos.getZ(), player));
+                item.shrink(1);
+                world.playSound(null, pos, SoundEvents.TNT_PRIMED, SoundSource.BLOCKS);
+                return InteractionResult.CONSUME;
             }
         }
-        if (item.isOf(Items.TRAPPED_CHEST)) {
-            BlockPos placementPos = blockHitResult.getBlockPos().offset(blockHitResult.getSide());
+        if (item.is(Items.TRAPPED_CHEST)) {
+            BlockPos placementPos = blockHitResult.getBlockPos().relative(blockHitResult.getDirection());
             trappedChests.put(placementPos, player);
-            item.decrement(1);
-            world.setBlockState(placementPos, Blocks.TRAPPED_CHEST.getPlacementState(new ItemPlacementContext(player, hand, item, blockHitResult)));
-            return ActionResult.SUCCESS;
+            item.shrink(1);
+            world.setBlockAndUpdate(placementPos, Blocks.TRAPPED_CHEST.getStateForPlacement(new BlockPlaceContext(player, hand, item, blockHitResult)));
+            return InteractionResult.SUCCESS;
         }
         // trapped chests explode when interacted
         BlockPos pos = blockHitResult.getBlockPos();
-        Vec3d centerPos = pos.toCenterPos();
+        Vec3 centerPos = pos.getCenter();
         if (world.getBlockState(pos).getBlock() instanceof TrappedChestBlock) {
-            world.setBlockState(pos, Blocks.AIR.getDefaultState());
-            world.createExplosion(trappedChests.get(pos), centerPos.getX(), centerPos.getY(), centerPos.getZ(), 4, World.ExplosionSourceType.TNT);
-            return ActionResult.CONSUME;
+            world.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
+            world.explode(trappedChests.get(pos), centerPos.x(), centerPos.y(), centerPos.z(), 4, Level.ExplosionInteraction.TNT);
+            return InteractionResult.CONSUME;
         }
-        return ActionResult.PASS;
+        return InteractionResult.PASS;
     }
 
 
     private EventResult onExplosion(Explosion explosion, List<BlockPos> explodedBlocks) {
         int i = 0;
         for (BlockPos blockPos : explodedBlocks) {
-            Block block = explosion.getWorld().getBlockState(blockPos).getBlock();
+            Block block = explosion.level().getBlockState(blockPos).getBlock();
             if (block instanceof TesterSign || block instanceof WallTesterSign) {
-                LivingEntity entity = explosion.getCausingEntity();
-                world.playSound(explosion.getEntity(),
+                LivingEntity entity = explosion.getIndirectSourceEntity();
+                world.playSound(explosion.getDirectSourceEntity(),
                         blockPos,
-                        SoundEvents.BLOCK_ANVIL_DESTROY,
-                        SoundCategory.BLOCKS,
+                        SoundEvents.ANVIL_DESTROY,
+                        SoundSource.BLOCKS,
                         1.5f,
                         0.85f);
-                if (entity != null && entity.isPlayer()) {
-                    ServerPlayerEntity player = (ServerPlayerEntity) entity;
+                if (entity != null && entity.isAlwaysTicking()) {
+                    ServerPlayer player = (ServerPlayer) entity;
                     Roles playerRole = teamManager.getPlayerRole(player);
                     int karma;
                     if (playerRole == Roles.SABOTEUR) {
@@ -611,7 +618,7 @@ public class SabotageActive {
                     } else {
                         karma = 0;
                     }
-                    player.sendMessage(Text.translatable("sabotage.tester.blew_up", Text.literal("(" + karma + " karma)").formatted((karma >= 0) ? Formatting.GREEN : Formatting.RED)));
+                    player.sendSystemMessage(Component.translatable("sabotage.tester.blew_up", Component.literal("(" + karma + " karma)").withStyle((karma >= 0) ? ChatFormatting.GREEN : ChatFormatting.RED)));
 
                 }
             } else {
@@ -621,9 +628,9 @@ public class SabotageActive {
                     continue;
                 }
                 i++;
-                taskScheduler.addTask(new Task((int) world.getTime() + (((100 + (int) (Math.random() *  200)) + (20 * i))),
+                taskScheduler.addTask(new Task((int) world.getGameTime() + (((100 + (int) (Math.random() *  200)) + (20 * i))),
                         (_gameSpace) -> {
-                            world.setBlockState(blockPos1, blockState);
+                            world.setBlockAndUpdate(blockPos1, blockState);
                         }
                         ));
             }
@@ -631,25 +638,25 @@ public class SabotageActive {
         return EventResult.ALLOW;
     }
 
-    private boolean onChat(ServerPlayerEntity plr, SignedMessage signedMessage, MessageType.Parameters parameters) {
+    private boolean onChat(ServerPlayer plr, PlayerChatMessage signedMessage, ChatType.Bound parameters) {
         if (gameState == GameStates.ACTIVE) {
             if (teamManager.getPlayerRole(plr) != Roles.NONE) {
-                chatManager.onChat(plr, signedMessage.getContent());
+                chatManager.onChat(plr, signedMessage.decoratedContent());
             }
             if (plr.isSpectator()) {
-                teamManager.dead.sendMessage(Text.literal("<" + plr.getName().getString() + "> ").formatted(Formatting.GRAY).append(signedMessage.getContent().copy().formatted(Formatting.RESET)));
+                teamManager.dead.sendMessage(Component.literal("<" + plr.getName().getString() + "> ").withStyle(ChatFormatting.GRAY).append(signedMessage.decoratedContent().copy().withStyle(ChatFormatting.RESET)));
             }
             // I have no idea what this is (or what it does), docs said to use it so I'm using it
-            SentMessage.of(signedMessage);
+            OutgoingChatMessage.create(signedMessage);
             return true;
         }
         return false;
     }
-    private EventResult onDeath(ServerPlayerEntity plr, DamageSource damageSource) {
-        for (ServerPlayerEntity plr2 : playersWithTracker) {
-            plr2.networkHandler.sendPacket(WaypointS2CPacket.untrack(plr.getUuid()));
+    private EventResult onDeath(ServerPlayer plr, DamageSource damageSource) {
+        for (ServerPlayer plr2 : playersWithTracker) {
+            plr2.connection.send(ClientboundTrackedWaypointPacket.removeWaypoint(plr.getUUID()));
         }
-        Entity entityAttacker = damageSource.getAttacker();
+        Entity entityAttacker = damageSource.getEntity();
         EventResult result = combatManager.onDeath(plr, damageSource);
 
         if (result != EventResult.PASS) {
@@ -661,38 +668,38 @@ public class SabotageActive {
             End(endReason);
         } else {
             MutablePlayerSet plrs = gameSpace.getPlayers().copy(gameSpace.getServer());
-            if (entityAttacker instanceof ServerPlayerEntity attacker) {
+            if (entityAttacker instanceof ServerPlayer attacker) {
                 plrs.remove(attacker);
             }
 
-            plrs.sendMessage(Text.translatable("sabotage.kill_message", plr.getName(), getAlivePlayers().size()).formatted(Formatting.YELLOW));
+            plrs.sendMessage(Component.translatable("sabotage.kill_message", plr.getName(), getAlivePlayers().size()).withStyle(ChatFormatting.YELLOW));
         }
         return EventResult.DENY;
     }
 
-    private void onShopBuy(ServerPlayerEntity plr, String item) {
+    private void onShopBuy(ServerPlayer plr, String item) {
         Roles role = teamManager.getPlayerRole(plr);
         switch (role) {
             case SABOTEUR:
                 switch (item) {
                     case "trapped_chest":
                         if (karmaManager.getKarma(plr) > 20) {
-                            plr.getInventory().insertStack(new ItemStack(Items.TRAPPED_CHEST));
+                            plr.getInventory().add(new ItemStack(Items.TRAPPED_CHEST));
                             karmaManager.decrementKarma(plr, 20);
-                            plr.sendMessage(Text.translatable("sabotage.shop.trapped_chest.desc"));
-                            plr.sendMessage(Text.translatable("sabotage.shop.buy_success", Text.literal("(20 Karma)").formatted(Formatting.BLUE)).formatted(Formatting.GREEN), true);
+                            plr.sendSystemMessage(Component.translatable("sabotage.shop.trapped_chest.desc"));
+                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
                         } else {
-                            plr.sendMessage(Text.translatable("sabotage.shop.buy_fail").formatted(Formatting.RED), true);
+                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
                         }
                         break;
                     case "tester_bypass":
                         if (karmaManager.getKarma(plr) > 20) {
                             testerBypassers.add(plr);
                             karmaManager.decrementKarma(plr, 20);
-                            plr.sendMessage(Text.translatable("sabotage.shop.tester_bypass.desc"));
-                            plr.sendMessage(Text.translatable("sabotage.shop.buy_success", Text.literal("(20 Karma)").formatted(Formatting.BLUE)).formatted(Formatting.GREEN), true);
+                            plr.sendSystemMessage(Component.translatable("sabotage.shop.tester_bypass.desc"));
+                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
                         } else {
-                            plr.sendMessage(Text.translatable("sabotage.shop.buy_fail").formatted(Formatting.RED), true);
+                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
                         }
                         break;
                 }
@@ -701,43 +708,43 @@ public class SabotageActive {
                 switch (item) {
                     case "tester_recharge":
                         if (karmaManager.getKarma(plr) > 10) {
-                            PlayerInventory inventory = plr.getInventory();
+                            Inventory inventory = plr.getInventory();
                             int slot = -1;
                             for (int i = 0; i < 36; i++) {
-                                if (inventory.getStack(i).getItem() instanceof DetectiveShears) {
+                                if (inventory.getItem(i).getItem() instanceof DetectiveShears) {
                                     slot = i;
                                     break;
                                 }
                             }
                             if (slot == -1) {
-                                plr.sendMessage(Text.translatable("sabotage.shop.tester_recharge.fail").formatted(Formatting.RED), true);
+                                plr.displayClientMessage(Component.translatable("sabotage.shop.tester_recharge.fail").withStyle(ChatFormatting.RED), true);
                                 break;
                             }
-                            ItemStack stack = inventory.getStack(slot);
-                            if (stack.getDamage() >= 50) {
-                                stack.setDamage(stack.getDamage() - 50);
-                                plr.sendMessage(Text.translatable("sabotage.shop.buy_success", Text.literal("(20 Karma)").formatted(Formatting.BLUE)).formatted(Formatting.GREEN), true);
-                                plr.sendMessage(Text.translatable("sabotage.shop.tester_recharge.desc"));
+                            ItemStack stack = inventory.getItem(slot);
+                            if (stack.getDamageValue() >= 50) {
+                                stack.setDamageValue(stack.getDamageValue() - 50);
+                                plr.displayClientMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
+                                plr.sendSystemMessage(Component.translatable("sabotage.shop.tester_recharge.desc"));
                                 karmaManager.decrementKarma(plr, 10);
                             } else {
-                                plr.sendMessage(Text.translatable("sabotage.shop.tester_recharge.full").formatted(Formatting.RED), true);
+                                plr.displayClientMessage(Component.translatable("sabotage.shop.tester_recharge.full").withStyle(ChatFormatting.RED), true);
                             }
                         } else {
-                            plr.sendMessage(Text.translatable("sabotage.shop.buy_fail").formatted(Formatting.RED), true);
+                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
                         }
                         break;
                     case "player_tracker":
                         if (karmaManager.getKarma(plr) > 20) {
                             playersWithTracker.add(plr);
-                            for (ServerPlayerEntity alive : getAlivePlayers()) {
-                                Vector3i pos = alive.getBlockPos().asVector3i();
-                                plr.networkHandler.sendPacket(WaypointS2CPacket.trackPos(alive.getUuid(), Waypoint.Config.DEFAULT, new Vec3i(pos.x, pos.y, pos.z)));
+                            for (ServerPlayer alive : getAlivePlayers()) {
+                                Vector3i pos = alive.blockPosition().toMutable();
+                                plr.connection.send(ClientboundTrackedWaypointPacket.addWaypointPosition(alive.getUUID(), Waypoint.Icon.NULL, new Vec3i(pos.x, pos.y, pos.z)));
                             }
-                            plr.sendMessage(Text.translatable("sabotage.shop.buy_success", Text.literal("(20 Karma)").formatted(Formatting.BLUE)).formatted(Formatting.GREEN), true);
-                            plr.sendMessage(Text.translatable("sabotage.shop.tracker.desc"));
+                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
+                            plr.sendSystemMessage(Component.translatable("sabotage.shop.tracker.desc"));
                             karmaManager.decrementKarma(plr, 20);
                         } else {
-                            plr.sendMessage(Text.translatable("sabotage.shop.buy_fail").formatted(Formatting.RED), true);
+                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
                         }
                         break;
                 }
@@ -747,27 +754,27 @@ public class SabotageActive {
                     case "wooden_spear":
                         if (karmaManager.getKarma(plr) > 30) {
                             ItemStack spear = new ItemStack(Items.WOODEN_SPEAR);
-                            spear.setDamage(spear.getMaxDamage() - 1);
-                            plr.sendMessage(Text.translatable("sabotage.shop.buy_success", Text.literal("(30 Karma)").formatted(Formatting.BLUE)).formatted(Formatting.GREEN), true);
-                            plr.sendMessage(Text.translatable("sabotage.shop.wooden_spear.desc"));
-                            plr.getInventory().insertStack(spear);
+                            spear.setDamageValue(spear.getMaxDamage() - 1);
+                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(30 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
+                            plr.sendSystemMessage(Component.translatable("sabotage.shop.wooden_spear.desc"));
+                            plr.getInventory().add(spear);
                             karmaManager.decrementKarma(plr, 30);
                         } else {
-                            plr.sendMessage(Text.translatable("sabotage.shop.buy_fail").formatted(Formatting.RED), true);
+                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
                         }
                         break;
                     case "player_tracker":
                         if (karmaManager.getKarma(plr) > 20) {
                             playersWithTracker.add(plr);
-                            for (ServerPlayerEntity alive : getAlivePlayers()) {
-                                Vector3i pos = alive.getBlockPos().asVector3i();
-                                plr.networkHandler.sendPacket(WaypointS2CPacket.trackPos(alive.getUuid(), Waypoint.Config.DEFAULT, new Vec3i(pos.x, pos.y, pos.z)));
+                            for (ServerPlayer alive : getAlivePlayers()) {
+                                Vector3i pos = alive.blockPosition().toMutable();
+                                plr.connection.send(ClientboundTrackedWaypointPacket.addWaypointPosition(alive.getUUID(), Waypoint.Icon.NULL, new Vec3i(pos.x, pos.y, pos.z)));
                             }
-                            plr.sendMessage(Text.translatable("sabotage.shop.buy_success", Text.literal("(20 Karma)").formatted(Formatting.BLUE)).formatted(Formatting.GREEN), true);
-                            plr.sendMessage(Text.translatable("sabotage.shop.tracker.desc"));
+                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
+                            plr.sendSystemMessage(Component.translatable("sabotage.shop.tracker.desc"));
                             karmaManager.decrementKarma(plr, 20);
                         } else {
-                            plr.sendMessage(Text.translatable("sabotage.shop.buy_fail").formatted(Formatting.RED), true);
+                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
                         }
                         break;
                 }
@@ -776,9 +783,9 @@ public class SabotageActive {
     }
 
     private JoinAcceptorResult onAccept(JoinAcceptor acceptor) {
-        return acceptor.teleport(this.world, new Vec3d(0, 66, 0)).thenRunForEach((plr) -> {
+        return acceptor.teleport(this.world, new Vec3(0, 66, 0)).thenRunForEach((plr) -> {
             // player joined after game start, so they're technically dead
-            plr.changeGameMode(GameMode.SPECTATOR);
+            plr.setGameMode(GameType.SPECTATOR);
             globalSidebar.addPlayer(plr);
             teamManager.dead.add(plr);
         });
@@ -788,9 +795,9 @@ public class SabotageActive {
         Sabotage.activeGames.remove(this);
     }
 
-    private void onPlayerRemove(ServerPlayerEntity plr) {
-        for (ServerPlayerEntity plr2 : playersWithTracker) {
-            plr2.networkHandler.sendPacket(WaypointS2CPacket.untrack(plr.getUuid()));
+    private void onPlayerRemove(ServerPlayer plr) {
+        for (ServerPlayer plr2 : playersWithTracker) {
+            plr2.connection.send(ClientboundTrackedWaypointPacket.removeWaypoint(plr.getUUID()));
         }
         Roles role = teamManager.getPlayerRole(plr);
         if (role == Roles.SABOTEUR) {
@@ -808,7 +815,7 @@ public class SabotageActive {
         globalSidebar.removePlayer(plr);
         //combatManager.onPlayerLeave(plr);
         // get around alive check by doing this
-        plr.changeGameMode(GameMode.SPECTATOR);
+        plr.setGameMode(GameType.SPECTATOR);
         if (gameState != GameStates.ENDED) {
             if (role != Roles.NONE) {
                 EndReason endReason = checkWinCondition();
@@ -816,43 +823,43 @@ public class SabotageActive {
                     End(endReason);
                 } else {
                     PlayerSet plrs = getAlivePlayers();
-                    plrs.sendMessage(Text.translatable("sabotage.kill_message", plr.getName(), plrs.size() - 1).formatted(Formatting.YELLOW));
+                    plrs.sendMessage(Component.translatable("sabotage.kill_message", plr.getName(), plrs.size() - 1).withStyle(ChatFormatting.YELLOW));
                 }
             }
         }
     }
     private void preventPlayerMovement() {
         // Make sure players don't move during countdown
-        for (ServerPlayerEntity plr : getAlivePlayers()) {
-            Vec3d pos = map.getPlayerSpawns().get(new PlayerRef(plr.getUuid()));
+        for (ServerPlayer plr : getAlivePlayers()) {
+            Vec3 pos = map.getPlayerSpawns().get(new PlayerRef(plr.getUUID()));
             // Set X and Y as relative so it will send 0 change when we pass yaw (yaw - yaw = 0) and pitch
-            Set<PositionFlag> flags = ImmutableSet.of(PositionFlag.X_ROT, PositionFlag.Y_ROT);
+            Set<Relative> flags = ImmutableSet.of(Relative.X_ROT, Relative.Y_ROT);
 
             // Teleport without changing the pitch and yaw
-            plr.teleport(plr.getEntityWorld(), pos.getX(), pos.getY(), pos.getZ(), flags, 0, 0, false);
+            plr.teleportTo(plr.level(), pos.x(), pos.y(), pos.z(), flags, 0, 0, false);
         }
     }
     public void onTick(PlayerSet plrs) {
-        long time = world.getTime();
+        long time = world.getGameTime();
         taskScheduler.onTick();
         chatManager.onTick();
         switch(gameState) {
             // 3 second buffer period for players to load
             case LOBBY_WAITING -> {
-                plrs.sendActionBar(Text.translatable("sabotage.waiting"));
+                plrs.sendActionBar(Component.translatable("sabotage.waiting"));
 
                 if (time % 20 == 0) {
-                    for (ServerPlayerEntity plr : plrs) {
-                        plr.setStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, 40, 0, false, false), plr);
+                    for (ServerPlayer plr : plrs) {
+                        plr.forceAddEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 40, 0, false, false), plr);
                     }
 
                     int secondsSinceStart = (int) Math.floor((time / 20) - (startTime / 20));
                     if (secondsSinceStart >= 3) {
                         startTime = time;
                         gameState = GameStates.COUNTDOWN;
-                        plrs.sendActionBar(Text.literal(""), 0, 0, 0);
-                        plrs.showTitle(Text.literal(Integer.toString(config.countdownTime())).formatted(Formatting.GOLD), 20);
-                        plrs.playSound(SoundEvents.BLOCK_NOTE_BLOCK_HARP.value(), SoundCategory.PLAYERS, 1.0F, 2.0F);
+                        plrs.sendActionBar(Component.literal(""), 0, 0, 0);
+                        plrs.showTitle(Component.literal(Integer.toString(config.countdownTime())).withStyle(ChatFormatting.GOLD), 20);
+                        plrs.playSound(SoundEvents.NOTE_BLOCK_HARP.value(), SoundSource.PLAYERS, 1.0F, 2.0F);
                     }
                 }
 
@@ -865,14 +872,14 @@ public class SabotageActive {
                     int countdownTime = config.countdownTime();
                     if (secondsSinceStart >= countdownTime) {
                         gameState = GameStates.GRACE_PERIOD;
-                        plrs.playSound(SoundEvents.BLOCK_RESPAWN_ANCHOR_CHARGE);
-                        plrs.sendMessage(Text.translatable("sabotage.game_start", config.gracePeriod()).formatted(Formatting.YELLOW));
+                        plrs.playSound(SoundEvents.RESPAWN_ANCHOR_CHARGE);
+                        plrs.sendMessage(Component.translatable("sabotage.game_start", config.gracePeriod()).withStyle(ChatFormatting.YELLOW));
                     } else {
-                        for (ServerPlayerEntity plr : plrs) {
-                            plr.setStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, 40, 0, false, false), plr);
+                        for (ServerPlayer plr : plrs) {
+                            plr.forceAddEffect(new MobEffectInstance(MobEffects.INVISIBILITY, 40, 0, false, false), plr);
                         }
-                        plrs.showTitle(Text.literal(Integer.toString(countdownTime - secondsSinceStart)).formatted(Formatting.GOLD), 20);
-                        plrs.playSound(SoundEvents.BLOCK_NOTE_BLOCK_HARP.value(), SoundCategory.PLAYERS, 1.0F, 2.0F);
+                        plrs.showTitle(Component.literal(Integer.toString(countdownTime - secondsSinceStart)).withStyle(ChatFormatting.GOLD), 20);
+                        plrs.playSound(SoundEvents.NOTE_BLOCK_HARP.value(), SoundSource.PLAYERS, 1.0F, 2.0F);
                     }
                 }
 
@@ -886,14 +893,14 @@ public class SabotageActive {
                     Start();
                 } else {
                     int secondsLeft = gracePeriod - secondsSinceStart;
-                    this.globalSidebar.set(content -> content.add(Text.translatable("sabotage.sidebar.grace_period." + ((secondsLeft == 1) ? "singular" : "plural"), secondsLeft)));
+                    this.globalSidebar.set(content -> content.add(Component.translatable("sabotage.sidebar.grace_period." + ((secondsLeft == 1) ? "singular" : "plural"), secondsLeft)));
                 }
             }
 
             case ACTIVE -> {
                 if (time % 20 == 0) {
                     // second has passed
-                    double timePassed = Math.floor((world.getTime() / 20) - (startTime / 20)) - config.countdownTime() - config.gracePeriod();
+                    double timePassed = Math.floor((world.getGameTime() / 20) - (startTime / 20)) - config.countdownTime() - config.gracePeriod();
                     int timeLimit = config.timeLimit();
                     if (timePassed >= timeLimit) {
                         End(EndReason.TIMEOUT);
@@ -904,7 +911,7 @@ public class SabotageActive {
                     double factor = ((timeLimit - timePassed) / timeLimit);
                     getAlivePlayers().forEach(plr -> {
                         if (!playersWithTracker.contains(plr)) {
-                            plr.setExperiencePoints((int) (plr.getNextLevelExperience() * factor));
+                            plr.setExperiencePoints((int) (plr.getXpNeededForNextLevel() * factor));
                         }
                     });
                 }
@@ -913,7 +920,7 @@ public class SabotageActive {
             case ENDED -> {
                 if (time % 20 == 0) {
                     // second has passed
-                    double timePassed = world.getTime() / 20 - endTime / 20;
+                    double timePassed = world.getGameTime() / 20 - endTime / 20;
                     if (timePassed >= config.endDelay()) {
                         gameSpace.close(GameCloseReason.FINISHED);
                     }

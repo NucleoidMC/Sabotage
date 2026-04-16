@@ -2,15 +2,15 @@ package me.ellieis.Sabotage.game;
 
 import me.ellieis.Sabotage.game.config.SabotageConfig;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
-import net.minecraft.item.ItemStack;
-import net.minecraft.network.packet.s2c.play.PlayerListS2CPacket;
-import net.minecraft.network.packet.s2c.play.TeamS2CPacket;
-import net.minecraft.scoreboard.Team;
-import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.Style;
-import net.minecraft.text.Text;
-import net.minecraft.util.Formatting;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket;
+import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
 import xyz.nucleoid.plasmid.api.game.GameActivity;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
 import xyz.nucleoid.plasmid.api.game.GameSpacePlayers;
@@ -32,13 +32,13 @@ public class TeamManager {
     GameSpace gameSpace;
     GameActivity gameActivity;
     SabotageActive game;
-    HashMap<ServerPlayerEntity, Style> oldColors = new HashMap<>();
-    HashMap<ServerPlayerEntity, Team> oldTeams = new HashMap<>();
-    public Team sab;
-    public Team det;
-    public Team inno;
-    public Team unknown;
-    public Team deadTeam;
+    HashMap<ServerPlayer, Style> oldColors = new HashMap<>();
+    HashMap<ServerPlayer, PlayerTeam> oldTeams = new HashMap<>();
+    public PlayerTeam sab;
+    public PlayerTeam det;
+    public PlayerTeam inno;
+    public PlayerTeam unknown;
+    public PlayerTeam deadTeam;
     public final MutablePlayerSet saboteurs;
     public final MutablePlayerSet detectives;
     public final MutablePlayerSet innocents;
@@ -53,44 +53,44 @@ public class TeamManager {
         gameActivity.listen(GamePlayerEvents.ADD, this::onAddPlayer);
         gameActivity.listen(GamePlayerEvents.REMOVE, this::onRemovePlayer);
         this.game = game;
-        this.sab = new Team(gameSpace.getServer().getScoreboard(), "sab");
-        sab.setColor(Formatting.RED);
-        this.det = new Team(gameSpace.getServer().getScoreboard(), "det");
-        det.setColor(Formatting.BLUE);
-        this.inno = new Team(gameSpace.getServer().getScoreboard(), "inno");
-        inno.setColor(Formatting.GREEN);
-        this.unknown = new Team(gameSpace.getServer().getScoreboard(), "unknown");
-        unknown.setColor(Formatting.YELLOW);
-        this.deadTeam = new Team(gameSpace.getServer().getScoreboard(), "dead");
-        deadTeam.setColor(Formatting.GRAY);
+        this.sab = new PlayerTeam(gameSpace.getServer().getScoreboard(), "sab");
+        sab.setColor(ChatFormatting.RED);
+        this.det = new PlayerTeam(gameSpace.getServer().getScoreboard(), "det");
+        det.setColor(ChatFormatting.BLUE);
+        this.inno = new PlayerTeam(gameSpace.getServer().getScoreboard(), "inno");
+        inno.setColor(ChatFormatting.GREEN);
+        this.unknown = new PlayerTeam(gameSpace.getServer().getScoreboard(), "unknown");
+        unknown.setColor(ChatFormatting.YELLOW);
+        this.deadTeam = new PlayerTeam(gameSpace.getServer().getScoreboard(), "dead");
+        deadTeam.setColor(ChatFormatting.GRAY);
         this.saboteurs = new MutablePlayerSet(gameSpace.getServer());
         this.detectives = new MutablePlayerSet(gameSpace.getServer());
         this.innocents = new MutablePlayerSet(gameSpace.getServer());
         this.dead = new MutablePlayerSet(gameSpace.getServer());
     }
 
-    private void onAddPlayer(ServerPlayerEntity player) {
-        var name = player.getPlayerListName();
+    private void onAddPlayer(ServerPlayer player) {
+        var name = player.getTabListDisplayName();
         if (name == null) {
             name = player.getName();
         }
-        oldTeams.put(player, player.getScoreboardTeam());
+        oldTeams.put(player, player.getTeam());
         oldColors.put(player, name.getStyle());
     }
 
-    private void onRemovePlayer(ServerPlayerEntity player) {
-        var name = player.getPlayerListName();
+    private void onRemovePlayer(ServerPlayer player) {
+        var name = player.getTabListDisplayName();
         if (name == null) {
             name = player.getName();
         }
         GameSpacePlayers plrs = gameSpace.getPlayers();
-        plrs.sendPacket(this.createPlayerListPacket(player, Text.empty().append(name.copy().setStyle(oldColors.get(player)))));
+        plrs.sendPacket(this.createPlayerListPacket(player, Component.empty().append(name.copy().setStyle(oldColors.get(player)))));
         plrs.forEach((plr) -> {
-            playerTeamPacket(deadTeam, player, plr, TeamS2CPacket.Operation.ADD);
+            playerTeamPacket(deadTeam, player, plr, ClientboundSetPlayerTeamPacket.Action.ADD);
             if (oldTeams.get(plr) != null) {
-                player.networkHandler.sendPacket(TeamS2CPacket.changePlayerTeam(oldTeams.get(plr), plr.getNameForScoreboard(), TeamS2CPacket.Operation.ADD));
+                player.connection.send(ClientboundSetPlayerTeamPacket.createPlayerPacket(oldTeams.get(plr), plr.getScoreboardName(), ClientboundSetPlayerTeamPacket.Action.ADD));
             } else {
-                player.networkHandler.sendPacket(TeamS2CPacket.changePlayerTeam(deadTeam, plr.getNameForScoreboard(), TeamS2CPacket.Operation.REMOVE));
+                player.connection.send(ClientboundSetPlayerTeamPacket.createPlayerPacket(deadTeam, plr.getScoreboardName(), ClientboundSetPlayerTeamPacket.Action.REMOVE));
             }
         });
 
@@ -98,35 +98,35 @@ public class TeamManager {
         oldColors.remove(player);
     }
 
-    private Text formatPlayerName(ServerPlayerEntity player, Text name, boolean isSaboteur) {
+    private Component formatPlayerName(ServerPlayer player, Component name, boolean isSaboteur) {
         Style style;
         if (isSaboteur) {
             if (saboteurs.contains(player)) {
-                style = Style.EMPTY.withColor(Formatting.RED);
+                style = Style.EMPTY.withColor(ChatFormatting.RED);
             } else if (detectives.contains(player)) {
-                style = Style.EMPTY.withColor(Formatting.BLUE);
+                style = Style.EMPTY.withColor(ChatFormatting.BLUE);
             } else if (innocents.contains(player)) {
-                style = Style.EMPTY.withColor(Formatting.GREEN);
+                style = Style.EMPTY.withColor(ChatFormatting.GREEN);
             } else {
-                style = Style.EMPTY.withColor(Formatting.GRAY);
+                style = Style.EMPTY.withColor(ChatFormatting.GRAY);
             }
         }
         else {
             if (detectives.contains(player)) {
-                style = Style.EMPTY.withColor(Formatting.BLUE);
+                style = Style.EMPTY.withColor(ChatFormatting.BLUE);
             } else if (dead.contains(player)) {
-                style = Style.EMPTY.withColor(Formatting.GRAY);
+                style = Style.EMPTY.withColor(ChatFormatting.GRAY);
             } else {
-                style = Style.EMPTY.withColor(Formatting.YELLOW);
+                style = Style.EMPTY.withColor(ChatFormatting.YELLOW);
             }
         }
-        return Text.empty().append(name.copy().setStyle(style));
+        return Component.empty().append(name.copy().setStyle(style));
     }
-    public PlayerListS2CPacket createPlayerListPacket(ServerPlayerEntity player, Text playerName) {
-        var packet = new PlayerListS2CPacket(PlayerListS2CPacket.Action.UPDATE_DISPLAY_NAME, player);
+    public ClientboundPlayerInfoUpdatePacket createPlayerListPacket(ServerPlayer player, Component playerName) {
+        var packet = new ClientboundPlayerInfoUpdatePacket(net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket.Action.UPDATE_DISPLAY_NAME, player);
 
-        var entry = packet.getEntries().get(0);
-        var name = player.getPlayerListName();
+        var entry = packet.entries().get(0);
+        var name = player.getTabListDisplayName();
         if (name == null) {
             name = player.getName();
         }
@@ -134,19 +134,19 @@ public class TeamManager {
 
         return packet;
     }
-    public PlayerListS2CPacket updatePlayerName(ServerPlayerEntity player, boolean isSaboteur) {
-        var name = player.getPlayerListName();
+    public ClientboundPlayerInfoUpdatePacket updatePlayerName(ServerPlayer player, boolean isSaboteur) {
+        var name = player.getTabListDisplayName();
         if (name == null) {
             name = player.getName();
         }
         return this.createPlayerListPacket(player, this.formatPlayerName(player, name, isSaboteur));
     }
 
-    public void playerTeamPacket(Team team, ServerPlayerEntity plr, ServerPlayerEntity otherPlr, TeamS2CPacket.Operation operation) {
-        plr.networkHandler.sendPacket(TeamS2CPacket.changePlayerTeam(team, otherPlr.getNameForScoreboard(), operation));
+    public void playerTeamPacket(PlayerTeam team, ServerPlayer plr, ServerPlayer otherPlr, ClientboundSetPlayerTeamPacket.Action operation) {
+        plr.connection.send(ClientboundSetPlayerTeamPacket.createPlayerPacket(team, otherPlr.getScoreboardName(), operation));
     }
 
-    public Team getPlayerTeam(ServerPlayerEntity plr, boolean isSab) {
+    public PlayerTeam getPlayerTeam(ServerPlayer plr, boolean isSab) {
         Roles role = getPlayerRole(plr);
         if (isSab) {
             if (role == Roles.SABOTEUR) {
@@ -170,21 +170,21 @@ public class TeamManager {
     }
     public void setPlayerTeams() {
         PlayerSet plrs = game.getAlivePlayers();
-        for (ServerPlayerEntity plr : plrs) {
+        for (ServerPlayer plr : plrs) {
             Roles role = getPlayerRole(plr);
-            for (ServerPlayerEntity otherPlr : plrs) {
+            for (ServerPlayer otherPlr : plrs) {
                 if (role == Roles.INNOCENT || role == Roles.DETECTIVE) {
-                    plr.networkHandler.sendPacket(TeamS2CPacket.updateTeam(det, true));
-                    plr.networkHandler.sendPacket(TeamS2CPacket.updateTeam(unknown, true));
-                    plr.networkHandler.sendPacket(TeamS2CPacket.updateTeam(deadTeam, true));
-                    playerTeamPacket(getPlayerTeam(otherPlr, false), plr, otherPlr, TeamS2CPacket.Operation.ADD);
+                    plr.connection.send(ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(det, true));
+                    plr.connection.send(ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(unknown, true));
+                    plr.connection.send(ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(deadTeam, true));
+                    playerTeamPacket(getPlayerTeam(otherPlr, false), plr, otherPlr, ClientboundSetPlayerTeamPacket.Action.ADD);
                 } else if (role == Roles.SABOTEUR) {
-                    plr.networkHandler.sendPacket(TeamS2CPacket.updateTeam(sab, true));
-                    plr.networkHandler.sendPacket(TeamS2CPacket.updateTeam(det, true));
-                    plr.networkHandler.sendPacket(TeamS2CPacket.updateTeam(inno, true));
-                    plr.networkHandler.sendPacket(TeamS2CPacket.updateTeam(unknown, true));
-                    plr.networkHandler.sendPacket(TeamS2CPacket.updateTeam(deadTeam, true));
-                    playerTeamPacket(getPlayerTeam(otherPlr, true), plr, otherPlr, TeamS2CPacket.Operation.ADD);
+                    plr.connection.send(ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(sab, true));
+                    plr.connection.send(ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(det, true));
+                    plr.connection.send(ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(inno, true));
+                    plr.connection.send(ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(unknown, true));
+                    plr.connection.send(ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(deadTeam, true));
+                    playerTeamPacket(getPlayerTeam(otherPlr, true), plr, otherPlr, ClientboundSetPlayerTeamPacket.Action.ADD);
                 }
             }
         }
@@ -194,14 +194,14 @@ public class TeamManager {
         PlayerSet plrs = game.getAlivePlayers();
         int playerCount = plrs.size();
         // need to make a new list from .toList to make it mutable
-        List<ServerPlayerEntity> plrList = new ArrayList<>(plrs.stream().toList());
+        List<ServerPlayer> plrList = new ArrayList<>(plrs.stream().toList());
         Collections.shuffle(plrList);
         int sabCount = Math.max(playerCount / 3, 1);
         int detCount = playerCount / 8;
         if (detCount < 1 && config.detectiveConfig().forceDetective()) {
             detCount = 1;
         }
-        for (ServerPlayerEntity plr : plrList) {
+        for (ServerPlayer plr : plrList) {
             if (detCount >= 1) {
                 detectives.add(plr);
                 detCount--;
@@ -213,30 +213,30 @@ public class TeamManager {
             }
         }
         initialSaboteurs = saboteurs.copy(gameSpace.getServer());
-        innocents.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.innocent").formatted(Formatting.GREEN)), 10, 80, 10);
-        innocents.playSound(SoundEvents.ENTITY_ILLUSIONER_CAST_SPELL);
-        detectives.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.detective").formatted(Formatting.BLUE)), 10, 80, 10);
-        detectives.playSound(SoundEvents.BLOCK_AMETHYST_BLOCK_CHIME);
-        saboteurs.showTitle(Text.translatable("sabotage.role_reveal", Text.translatable("sabotage.saboteur").formatted(Formatting.RED)), 10, 80, 10);
-        saboteurs.playSound(SoundEvents.ENTITY_ILLUSIONER_CAST_SPELL);
+        innocents.showTitle(Component.translatable("sabotage.role_reveal", Component.translatable("sabotage.innocent").withStyle(ChatFormatting.GREEN)), 10, 80, 10);
+        innocents.playSound(SoundEvents.ILLUSIONER_CAST_SPELL);
+        detectives.showTitle(Component.translatable("sabotage.role_reveal", Component.translatable("sabotage.detective").withStyle(ChatFormatting.BLUE)), 10, 80, 10);
+        detectives.playSound(SoundEvents.AMETHYST_BLOCK_CHIME);
+        saboteurs.showTitle(Component.translatable("sabotage.role_reveal", Component.translatable("sabotage.saboteur").withStyle(ChatFormatting.RED)), 10, 80, 10);
+        saboteurs.playSound(SoundEvents.ILLUSIONER_CAST_SPELL);
         saboteurs.playSound(SoundEvents.AMBIENT_SOUL_SAND_VALLEY_MOOD.value());
 
         // role colors
-        for (ServerPlayerEntity player: plrs) {
-            for (ServerPlayerEntity plr: plrs) {
-                player.networkHandler.sendPacket(updatePlayerName(plr, getPlayerRole(player) == Roles.SABOTEUR));
+        for (ServerPlayer player: plrs) {
+            for (ServerPlayer plr: plrs) {
+                player.connection.send(updatePlayerName(plr, getPlayerRole(player) == Roles.SABOTEUR));
             }
         }
         setPlayerTeams();
         // give detectives their portable tester
-        for (ServerPlayerEntity detective : detectives) {
-            detective.getInventory().insertStack(new ItemStack(DETECTIVE_SHEARS));
+        for (ServerPlayer detective : detectives) {
+            detective.getInventory().add(new ItemStack(DETECTIVE_SHEARS));
         }
 
         game.setSidebars();
     }
 
-    public Roles getPlayerRole(ServerPlayerEntity plr) {
+    public Roles getPlayerRole(ServerPlayer plr) {
         if (innocents.contains(plr)) {
             return Roles.INNOCENT;
         } else if (detectives.contains(plr)) {
@@ -247,10 +247,10 @@ public class TeamManager {
         return Roles.NONE;
     }
 
-    public static Formatting getRoleColor(Roles role) {
-        return (role == Roles.INNOCENT) ? Formatting.GREEN :
-                (role == Roles.DETECTIVE) ? Formatting.BLUE :
-                        (role == Roles.SABOTEUR) ? Formatting.RED : Formatting.RESET;
+    public static ChatFormatting getRoleColor(Roles role) {
+        return (role == Roles.INNOCENT) ? ChatFormatting.GREEN :
+                (role == Roles.DETECTIVE) ? ChatFormatting.BLUE :
+                        (role == Roles.SABOTEUR) ? ChatFormatting.RED : ChatFormatting.RESET;
     }
 
 }
