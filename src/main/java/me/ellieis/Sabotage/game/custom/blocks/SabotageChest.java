@@ -9,6 +9,7 @@ import me.ellieis.Sabotage.game.GameStates;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
 import me.ellieis.Sabotage.game.statistics.GlobalPlayerStatistics;
 import me.ellieis.Sabotage.game.statistics.SabotagePlayerStatistics;
+import net.fabricmc.fabric.api.networking.v1.context.PacketContext;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChestBlock;
@@ -32,13 +33,11 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.DyeColor;
-import net.minecraft.world.level.block.state.BlockBehaviour.Properties;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.Level;
-import xyz.nucleoid.packettweaker.PacketContext;
 
 import java.util.List;
 import java.util.Map;
@@ -164,12 +163,12 @@ public class SabotageChest extends ChestBlock implements EntityBlock, PolymerBlo
         return new SabotageChestBlockEntity(pos, state);
     }
     @Override
-    public void onPolymerBlockSend(BlockState blockState, BlockPos.MutableBlockPos pos, PacketContext.NotNullWithPlayer context) {
+    public void onPolymerBlockSend(BlockState blockState, BlockPos.MutableBlockPos pos, ServerPlayer plr) {
         CompoundTag nbt = new CompoundTag();
         nbt.putInt("x", pos.getX());
         nbt.putInt("y", pos.getY());
         nbt.putInt("z", pos.getZ());
         nbt.putString("id", "minecraft:chest");
-        context.getPlayer().connection.send(PolymerBlockUtils.createBlockEntityPacket(pos, BlockEntityType.CHEST, nbt));
+        plr.connection.send(PolymerBlockUtils.createBlockEntityPacket(pos, BlockEntityType.CHEST, nbt));
     }
 }

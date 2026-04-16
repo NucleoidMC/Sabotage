@@ -1,6 +1,7 @@
 package me.ellieis.Sabotage.game.custom.blocks;
 
 import eu.pb4.polymer.core.api.block.PolymerBlock;
+import net.fabricmc.fabric.api.networking.v1.context.PacketContext;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.WallSignBlock;
@@ -16,7 +17,6 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
-import xyz.nucleoid.packettweaker.PacketContext;
 
 public class WallTesterSign extends WallSignBlock implements PolymerBlock {
     private final Block virtualBlock = Blocks.OAK_SIGN;

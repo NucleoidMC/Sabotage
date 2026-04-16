@@ -3,10 +3,11 @@ package me.ellieis.Sabotage.game.custom.items;
 import eu.pb4.polymer.core.api.item.PolymerItem;
 import me.ellieis.Sabotage.Sabotage;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
+import net.fabricmc.fabric.api.networking.v1.context.PacketContext;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Item.Properties;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.server.level.ServerPlayer;
@@ -14,7 +15,6 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
-import xyz.nucleoid.packettweaker.PacketContext;
 
 public class DetectiveShears extends Item implements PolymerItem {
     public DetectiveShears(Properties settings) {
@@ -42,7 +42,7 @@ public class DetectiveShears extends Item implements PolymerItem {
     }
 
     @Override
-    public Identifier getPolymerItemModel(ItemStack stack, PacketContext context) {
+    public Identifier getPolymerItemModel(ItemStack stack, PacketContext context, HolderLookup.Provider lookup) {
         return null;
     }
 }

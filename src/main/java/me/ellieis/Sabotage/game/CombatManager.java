@@ -8,6 +8,7 @@ import me.ellieis.Sabotage.game.phase.SabotageActive;
 import me.ellieis.Sabotage.game.statistics.KarmaManager;
 import me.ellieis.Sabotage.mixin.MannequinAccessor;
 import net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket;
+import net.minecraft.world.entity.animal.cow.CowSoundVariants;
 import net.minecraft.world.item.component.ResolvableProfile;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Pose;
@@ -74,7 +75,7 @@ public class CombatManager {
         Entity entityAttacker = damageSource.getEntity();
         Roles plrRole = teamManager.getPlayerRole(plr);
         plr.setGameMode(GameType.SPECTATOR);
-        plr.playSound(SoundEvents.COW_DEATH, 1, 0.7f);
+        plr.playSound(SoundEvents.COW_SOUNDS.get(CowSoundVariants.SoundSet.CLASSIC).deathSound().value(), 1, 0.7f);
         createPlayerBody(plr, game.getWorld(), plrRole);
         teamManager.dead.add(plr);
         GameSpacePlayers plrSet = gameSpace.getPlayers();

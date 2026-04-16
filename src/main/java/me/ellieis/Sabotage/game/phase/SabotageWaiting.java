@@ -7,7 +7,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.GameType;
-import xyz.nucleoid.fantasy.RuntimeWorldConfig;
+import xyz.nucleoid.fantasy.RuntimeLevelConfig;
 import xyz.nucleoid.plasmid.api.game.*;
 import xyz.nucleoid.plasmid.api.game.common.GameWaitingLobby;
 import xyz.nucleoid.plasmid.api.game.event.GameActivityEvents;
@@ -17,7 +17,6 @@ import xyz.nucleoid.plasmid.api.game.player.JoinAcceptorResult;
 import xyz.nucleoid.plasmid.api.game.player.JoinOffer;
 import xyz.nucleoid.plasmid.api.game.rule.GameRuleType;
 import xyz.nucleoid.stimuli.event.EventResult;
-import xyz.nucleoid.stimuli.event.block.BlockBreakEvent;
 import xyz.nucleoid.stimuli.event.block.BlockRandomTickEvent;
 import xyz.nucleoid.stimuli.event.entity.EntityDamageEvent;
 import xyz.nucleoid.stimuli.event.player.PlayerAttackEntityEvent;
@@ -55,9 +54,9 @@ public class SabotageWaiting {
         MinecraftServer server = context.server();
         // set up how the world that this minigame will take place in should be constructed
         WaitingMap map = SabotageMapBuilder.buildWaiting(server, config.waitingLobby(), config);
-        RuntimeWorldConfig worldConfig = new RuntimeWorldConfig()
+        RuntimeLevelConfig levelConfig = new RuntimeLevelConfig()
                 .setGenerator(map.asChunkGenerator(server));
-        return context.openWithWorld(worldConfig, (activity, world) -> {
+        return context.openWithLevel(levelConfig, (activity, world) -> {
             SabotageWaiting game = new SabotageWaiting(config, activity.getGameSpace(), map, world);
             GameWaitingLobby.addTo(activity, config.playerConfig());
 
@@ -72,7 +71,7 @@ public class SabotageWaiting {
 
     public GameResult requestStart() {
         SabotageActive.Open(this.gameSpace, this.config);
-        gameSpace.getWorlds().remove(this.world);
+        gameSpace.getLevels().remove(this.world);
         return GameResult.ok();
     }
     private JoinAcceptorResult acceptPlayer(JoinAcceptor acceptor) {

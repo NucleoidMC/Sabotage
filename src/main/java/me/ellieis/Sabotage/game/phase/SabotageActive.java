@@ -63,10 +63,9 @@ import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.gamerules.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.Explosion;
-import net.minecraft.world.waypoints.TrackedWaypoint;
 import net.minecraft.world.waypoints.Waypoint;
 import org.joml.Vector3i;
-import xyz.nucleoid.fantasy.RuntimeWorldConfig;
+import xyz.nucleoid.fantasy.RuntimeLevelConfig;
 import xyz.nucleoid.plasmid.api.game.GameActivity;
 import xyz.nucleoid.plasmid.api.game.GameCloseReason;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
@@ -482,11 +481,11 @@ public class SabotageActive {
     }
     public static void Open(GameSpace gameSpace, SabotageConfig config) {
         SabotageMap map = SabotageMapBuilder.buildActive(gameSpace.getServer(), config.map(), config, gameSpace.getPlayers().participants().size());
-        RuntimeWorldConfig worldConfig = new RuntimeWorldConfig()
+        RuntimeLevelConfig levelConfig = new RuntimeLevelConfig()
                 .setGenerator(map.asChunkGenerator(gameSpace.getServer()))
-                .setDimensionType(ResourceKey.create(Registries.DIMENSION_TYPE, config.dimension()))
-                .setTimeOfDay(config.time());
-        ServerLevel world = gameSpace.getWorlds().add(worldConfig);
+                .setDimensionType(ResourceKey.create(Registries.DIMENSION_TYPE, config.dimension()));
+                //.setTimeOfDay(config.time());
+        ServerLevel world = gameSpace.getLevels().add(levelConfig);
         gameSpace.setActivity(activity -> {
             SabotageActive game = new SabotageActive(config, gameSpace, map, world, activity);
             game.startTime = world.getGameTime();
@@ -687,9 +686,9 @@ public class SabotageActive {
                             plr.getInventory().add(new ItemStack(Items.TRAPPED_CHEST));
                             karmaManager.decrementKarma(plr, 20);
                             plr.sendSystemMessage(Component.translatable("sabotage.shop.trapped_chest.desc"));
-                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
+                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
                         } else {
-                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
+                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
                         }
                         break;
                     case "tester_bypass":
@@ -697,9 +696,9 @@ public class SabotageActive {
                             testerBypassers.add(plr);
                             karmaManager.decrementKarma(plr, 20);
                             plr.sendSystemMessage(Component.translatable("sabotage.shop.tester_bypass.desc"));
-                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
+                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
                         } else {
-                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
+                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
                         }
                         break;
                 }
@@ -717,20 +716,20 @@ public class SabotageActive {
                                 }
                             }
                             if (slot == -1) {
-                                plr.displayClientMessage(Component.translatable("sabotage.shop.tester_recharge.fail").withStyle(ChatFormatting.RED), true);
+                                plr.sendSystemMessage(Component.translatable("sabotage.shop.tester_recharge.fail").withStyle(ChatFormatting.RED), true);
                                 break;
                             }
                             ItemStack stack = inventory.getItem(slot);
                             if (stack.getDamageValue() >= 50) {
                                 stack.setDamageValue(stack.getDamageValue() - 50);
-                                plr.displayClientMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
+                                plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
                                 plr.sendSystemMessage(Component.translatable("sabotage.shop.tester_recharge.desc"));
                                 karmaManager.decrementKarma(plr, 10);
                             } else {
-                                plr.displayClientMessage(Component.translatable("sabotage.shop.tester_recharge.full").withStyle(ChatFormatting.RED), true);
+                                plr.sendSystemMessage(Component.translatable("sabotage.shop.tester_recharge.full").withStyle(ChatFormatting.RED), true);
                             }
                         } else {
-                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
+                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
                         }
                         break;
                     case "player_tracker":
@@ -740,11 +739,11 @@ public class SabotageActive {
                                 Vector3i pos = alive.blockPosition().toMutable();
                                 plr.connection.send(ClientboundTrackedWaypointPacket.addWaypointPosition(alive.getUUID(), Waypoint.Icon.NULL, new Vec3i(pos.x, pos.y, pos.z)));
                             }
-                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
+                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
                             plr.sendSystemMessage(Component.translatable("sabotage.shop.tracker.desc"));
                             karmaManager.decrementKarma(plr, 20);
                         } else {
-                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
+                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
                         }
                         break;
                 }
@@ -755,12 +754,12 @@ public class SabotageActive {
                         if (karmaManager.getKarma(plr) > 30) {
                             ItemStack spear = new ItemStack(Items.WOODEN_SPEAR);
                             spear.setDamageValue(spear.getMaxDamage() - 1);
-                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(30 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
+                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(30 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
                             plr.sendSystemMessage(Component.translatable("sabotage.shop.wooden_spear.desc"));
                             plr.getInventory().add(spear);
                             karmaManager.decrementKarma(plr, 30);
                         } else {
-                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
+                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
                         }
                         break;
                     case "player_tracker":
@@ -770,11 +769,11 @@ public class SabotageActive {
                                 Vector3i pos = alive.blockPosition().toMutable();
                                 plr.connection.send(ClientboundTrackedWaypointPacket.addWaypointPosition(alive.getUUID(), Waypoint.Icon.NULL, new Vec3i(pos.x, pos.y, pos.z)));
                             }
-                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
+                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
                             plr.sendSystemMessage(Component.translatable("sabotage.shop.tracker.desc"));
                             karmaManager.decrementKarma(plr, 20);
                         } else {
-                            plr.displayClientMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
+                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
                         }
                         break;
                 }

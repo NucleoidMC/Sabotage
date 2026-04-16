@@ -5,6 +5,8 @@ import eu.pb4.polymer.resourcepack.api.PolymerResourcePackUtils;
 import me.ellieis.Sabotage.Sabotage;
 import me.ellieis.Sabotage.game.Roles;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
+import net.fabricmc.fabric.api.networking.v1.context.PacketContext;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.server.dialog.DialogAction;
 import net.minecraft.server.dialog.CommonDialogData;
 import net.minecraft.server.dialog.body.DialogBody;
@@ -25,7 +27,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.Level;
-import xyz.nucleoid.packettweaker.PacketContext;
 import xyz.nucleoid.plasmid.api.game.GameSpaceManager;
 
 import java.util.ArrayList;
@@ -80,7 +81,7 @@ public class ShopItem extends Item implements PolymerItem {
                 body.add(new PlainMessage(Component.translatable("sabotage.shop.no_role"), 300));
         }
 
-        var dialog = new NoticeDialog(new CommonDialogData(getName(), Optional.empty(), true, false, DialogAction.CLOSE, body, List.of()), NoticeDialog.DEFAULT_ACTION);
+        var dialog = new NoticeDialog(new CommonDialogData(getName(plr.getItemInHand(hand)), Optional.empty(), true, false, DialogAction.CLOSE, body, List.of()), NoticeDialog.DEFAULT_ACTION);
         plr.openDialog(Holder.direct(dialog));
         return InteractionResult.FAIL;
     }
@@ -90,7 +91,7 @@ public class ShopItem extends Item implements PolymerItem {
     }
 
     @Override
-    public Identifier getPolymerItemModel(ItemStack stack, PacketContext context) {
+    public Identifier getPolymerItemModel(ItemStack stack, PacketContext context, HolderLookup.Provider lookup) {
         if (PolymerResourcePackUtils.hasMainPack(context)) {
             return Sabotage.identifier("shop_item");
         }

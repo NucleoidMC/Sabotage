@@ -1,6 +1,8 @@
 package me.ellieis.Sabotage.game.custom.blocks;
 
 import eu.pb4.polymer.core.api.block.PolymerBlock;
+import net.fabricmc.fabric.api.networking.v1.context.PacketContext;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.StandingSignBlock;
@@ -16,7 +18,6 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import org.jetbrains.annotations.Nullable;
-import xyz.nucleoid.packettweaker.PacketContext;
 
 public class TesterSign extends StandingSignBlock implements PolymerBlock {
     private final Block virtualBlock = Blocks.OAK_SIGN;
@@ -49,7 +50,7 @@ public class TesterSign extends StandingSignBlock implements PolymerBlock {
     }
 
     @Override
-    public void onPolymerBlockSend(BlockState blockState, BlockPos.MutableBlockPos pos, PacketContext.NotNullWithPlayer context) {
-        context.getPlayer().connection.send(BaseTesterSign.getBlockEntityPacket(pos));
+    public void onPolymerBlockSend(BlockState blockState, BlockPos.MutableBlockPos pos, ServerPlayer plr) {
+        plr.connection.send(BaseTesterSign.getBlockEntityPacket(pos));
     }
 }
