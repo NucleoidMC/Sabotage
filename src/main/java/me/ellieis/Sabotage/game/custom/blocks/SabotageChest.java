@@ -123,34 +123,34 @@ public class SabotageChest extends ChestBlock implements EntityBlock, PolymerBlo
     }
 
     @Override
-    public InteractionResult useWithoutItem(BlockState state, Level woorld, BlockPos pos, Player plr, BlockHitResult hit) {
-        if (woorld.isClientSide()) return InteractionResult.PASS;
+    public InteractionResult useWithoutItem(BlockState state, Level levell, BlockPos pos, Player plr, BlockHitResult hit) {
+        if (levell.isClientSide()) return InteractionResult.PASS;
         SabotageActive game = null;
 
         for (SabotageActive activeGame : Sabotage.activeGames) {
-            if (activeGame.getWorld().equals(woorld)) {
+            if (activeGame.getLevel().equals(levell)) {
                 game = activeGame;
                 break;
             }
         }
         if (game != null && game.gameState != GameStates.COUNTDOWN) {
-            ServerLevel world = (ServerLevel) woorld;
-            world.playSound(null, pos, SoundEvents.CHEST_CLOSE, SoundSource.BLOCKS, 1, 1.2f);
+            ServerLevel level = (ServerLevel) levell;
+            level.playSound(null, pos, SoundEvents.CHEST_CLOSE, SoundSource.BLOCKS, 1, 1.2f);
             Vec3 center = pos.getCenter();
-            world.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, center.x, center.y, center.z, 16, 0, 0, 0, 0.5);
+            level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, center.x, center.y, center.z, 16, 0, 0, 0, 0.5);
 
             Inventory inventory = plr.getInventory();
             ItemStack item = getItemDrop();
             if (!inventory.add(item)) {
                 // couldn't insert stack, inventory is likely full
-                world.addFreshEntity(new ItemEntity(world, pos.getX(), pos.getY(), pos.getZ(), item));
+                level.addFreshEntity(new ItemEntity(level, pos.getX(), pos.getY(), pos.getZ(), item));
             }
 
             game.stats.forPlayer((ServerPlayer) plr).increment(SabotagePlayerStatistics.CHESTS_OPENED, 1);
             game.stats.global().increment(GlobalPlayerStatistics.TOTAL_CHESTS_OPENED, 1);
 
-            world.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
-            world.updateNeighborsAt(pos, Blocks.AIR);
+            level.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
+            level.updateNeighborsAt(pos, Blocks.AIR);
         }
         return InteractionResult.FAIL;
     }

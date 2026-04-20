@@ -25,13 +25,13 @@ public class SabotageWaiting {
     private final SabotageConfig config;
     private final GameSpace gameSpace;
     private final WaitingMap map;
-    private final ServerLevel world;
+    private final ServerLevel level;
 
-    public SabotageWaiting(SabotageConfig config, GameSpace gameSpace, WaitingMap map, ServerLevel world) {
+    public SabotageWaiting(SabotageConfig config, GameSpace gameSpace, WaitingMap map, ServerLevel level) {
         this.config = config;
         this.gameSpace = gameSpace;
         this.map = map;
-        this.world = world;
+        this.level = level;
     }
     private static void rules(GameActivity activity) {
         activity.deny(GameRuleType.FALL_DAMAGE);
@@ -52,12 +52,12 @@ public class SabotageWaiting {
     public static GameOpenProcedure Open(GameOpenContext<SabotageConfig> context) {
         SabotageConfig config = context.game().config();
         MinecraftServer server = context.server();
-        // set up how the world that this minigame will take place in should be constructed
+        // set up how the level that this minigame will take place in should be constructed
         WaitingMap map = SabotageMapBuilder.buildWaiting(server, config.waitingLobby(), config);
         RuntimeLevelConfig levelConfig = new RuntimeLevelConfig()
                 .setGenerator(map.asChunkGenerator(server));
-        return context.openWithLevel(levelConfig, (activity, world) -> {
-            SabotageWaiting game = new SabotageWaiting(config, activity.getGameSpace(), map, world);
+        return context.openWithLevel(levelConfig, (activity, level) -> {
+            SabotageWaiting game = new SabotageWaiting(config, activity.getGameSpace(), map, level);
             GameWaitingLobby.addTo(activity, config.playerConfig());
 
             rules(activity);
@@ -71,12 +71,12 @@ public class SabotageWaiting {
 
     public GameResult requestStart() {
         SabotageActive.Open(this.gameSpace, this.config);
-        gameSpace.getLevels().remove(this.world);
+        gameSpace.getLevels().remove(this.level);
         return GameResult.ok();
     }
     private JoinAcceptorResult acceptPlayer(JoinAcceptor acceptor) {
-        return acceptor.teleport(this.world, Vec3.ZERO).thenRunForEach(plr -> {
-            map.spawnPlayer(world, plr);
+        return acceptor.teleport(this.level, Vec3.ZERO).thenRunForEach(plr -> {
+            map.spawnPlayer(level, plr);
             plr.setGameMode(GameType.ADVENTURE);
         });
     }

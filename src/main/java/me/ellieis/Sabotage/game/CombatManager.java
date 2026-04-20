@@ -76,7 +76,7 @@ public class CombatManager {
         Roles plrRole = teamManager.getPlayerRole(plr);
         plr.setGameMode(GameType.SPECTATOR);
         plr.playSound(SoundEvents.COW_SOUNDS.get(CowSoundVariants.SoundSet.CLASSIC).deathSound().value(), 1, 0.7f);
-        createPlayerBody(plr, game.getWorld(), plrRole);
+        createPlayerBody(plr, game.getLevel(), plrRole);
         teamManager.dead.add(plr);
         GameSpacePlayers plrSet = gameSpace.getPlayers();
         plrSet.forEach((otherPlr) -> teamManager.playerTeamPacket(teamManager.deadTeam, otherPlr, plr, ClientboundSetPlayerTeamPacket.Action.ADD));
@@ -209,13 +209,13 @@ public class CombatManager {
         }
     }
 
-    private void createPlayerBody(ServerPlayer plr, ServerLevel world, Roles plrRole) {
-        Mannequin mannequin = new Mannequin(EntityType.MANNEQUIN, world);
+    private void createPlayerBody(ServerPlayer plr, ServerLevel level, Roles plrRole) {
+        Mannequin mannequin = new Mannequin(EntityType.MANNEQUIN, level);
         ((MannequinAccessor) mannequin).sabotage$setMannequinProfile(ResolvableProfile.createUnresolved(plr.getUUID()));
         mannequin.setPosRaw(plr.getX(), plr.getY(), plr.getZ());
         mannequin.setPose(Pose.SLEEPING);
         BodyData bodyData = new BodyData(plrRole, mannequin);
-        world.addFreshEntity(mannequin);
+        level.addFreshEntity(mannequin);
         bodies.put(plr, bodyData);
 
     }

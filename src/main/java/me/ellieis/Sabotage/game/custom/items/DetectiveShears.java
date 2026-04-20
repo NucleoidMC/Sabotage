@@ -23,10 +23,10 @@ public class DetectiveShears extends Item implements PolymerItem {
 
     @Override
     public InteractionResult interactLivingEntity(ItemStack item, Player plr, LivingEntity entity, InteractionHand hand) {
-        Level world = plr.level();
-        if (!world.isClientSide()) {
+        Level level = plr.level();
+        if (!level.isClientSide()) {
             for (SabotageActive game : Sabotage.activeGames) {
-                if (game.getWorld().equals(world) && (item.getMaxDamage() - item.getDamageValue()) > 1) {
+                if (game.getLevel().equals(level) && (item.getMaxDamage() - item.getDamageValue()) > 1) {
                     item.setDamageValue(item.getDamageValue() + 50);
                     game.testEntity((ServerPlayer) plr, entity);
                     break;

@@ -18,12 +18,12 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 
 public class BaseTesterSign  {
-    public static void onUse(Level world, Player player, BlockPos pos) {
-        if (!world.isClientSide()) {
+    public static void onUse(Level level, Player player, BlockPos pos) {
+        if (!level.isClientSide()) {
             ServerPlayer plr = (ServerPlayer) player;
 
             for (SabotageActive game : Sabotage.activeGames) {
-                if (game.getWorld().equals(world)) {
+                if (game.getLevel().equals(level)) {
                     if (!game.testEntity(plr, pos.getCenter())) {
                         plr.sendSystemMessage(Component.translatable("sabotage.tester.fail").withStyle(ChatFormatting.YELLOW));
                     }
@@ -33,9 +33,9 @@ public class BaseTesterSign  {
         }
     }
 
-    public static void onPlaced(Level world, BlockPos pos) {
-        if (!world.isClientSide()) {
-            TesterSignBlockEntity be = (TesterSignBlockEntity) world.getBlockEntity(pos);
+    public static void onPlaced(Level level, BlockPos pos) {
+        if (!level.isClientSide()) {
+            TesterSignBlockEntity be = (TesterSignBlockEntity) level.getBlockEntity(pos);
             Component[] text = {Component.literal("Click"), Component.literal("this sign"), Component.literal("to start"), Component.literal("test")};
             be.setText(new SignText(text, text, DyeColor.RED, true), true);
             be.setWaxed(true);

@@ -8,12 +8,12 @@ import java.util.ArrayList;
 
 public class TaskScheduler {
     private final GameSpace gameSpace;
-    private final Level world;
+    private final Level level;
     private final ArrayList<Task> tasks = new ArrayList<>();
 
-    public TaskScheduler(GameSpace gameSpace, Level world) {
+    public TaskScheduler(GameSpace gameSpace, Level level) {
         this.gameSpace = gameSpace;
-        this.world = world;
+        this.level = level;
     }
 
     public ArrayList<Task> getTasks() {
@@ -25,7 +25,7 @@ public class TaskScheduler {
     }
 
     public void onTick() {
-        long time = world.getGameTime();
+        long time = level.getGameTime();
         for (int i = 0; i < tasks.size(); i++) {
             Task task = tasks.get(i);
             if (task.executionTime() <= time) {

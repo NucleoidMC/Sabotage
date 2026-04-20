@@ -9,7 +9,7 @@ import net.minecraft.world.level.chunk.ChunkGenerator;
 import xyz.nucleoid.map_templates.MapTemplate;
 import xyz.nucleoid.map_templates.TemplateRegion;
 import xyz.nucleoid.plasmid.api.game.GameOpenException;
-import xyz.nucleoid.plasmid.api.game.world.generator.TemplateChunkGenerator;
+import xyz.nucleoid.plasmid.api.game.level.generator.TemplateChunkGenerator;
 
 import java.util.HashSet;
 import java.util.List;
@@ -31,10 +31,10 @@ public class WaitingMap {
         return this.spawns;
     }
 
-    public void spawnPlayer(ServerLevel world, ServerPlayer plr) {
+    public void spawnPlayer(ServerLevel level, ServerPlayer plr) {
         TemplateRegion spawn = spawns.get(new Random().nextInt(spawns.size()));
         Vec3 pos = spawn.getBounds().centerBottom();
-        plr.teleportTo(world, pos.x(), pos.y(), pos.z(), new HashSet<>(), spawn.getData().getFloatOr("Rotation", 0f), 0, true);
+        plr.teleportTo(level, pos.x(), pos.y(), pos.z(), new HashSet<>(), spawn.getData().getFloatOr("Rotation", 0f), 0, true);
         plr.setOnGround(true);
         plr.setDeltaMovement(0,0,0);
     }

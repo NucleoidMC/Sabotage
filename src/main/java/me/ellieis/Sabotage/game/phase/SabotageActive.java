@@ -94,12 +94,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import static me.ellieis.Sabotage.Sabotage.MOD_ID;
 import static me.ellieis.Sabotage.Sabotage.SHOP_BUY_PACKET_ID;
-import static me.ellieis.Sabotage.game.custom.SabotageItems.DETECTIVE_SHEARS;
 import static me.ellieis.Sabotage.game.custom.SabotageItems.SHOP_ITEM;
 
 public class SabotageActive {
@@ -107,7 +105,7 @@ public class SabotageActive {
     private final SabotageConfig config;
     public final GameSpace gameSpace;
     private final SabotageMap map;
-    private final ServerLevel world;
+    private final ServerLevel level;
     public final GameStatisticBundle stats;
     private final KarmaManager karmaManager;
     public final TaskScheduler taskScheduler;
@@ -127,25 +125,25 @@ public class SabotageActive {
     private final HashMap<BlockPos, ServerPlayer> trappedChests = new HashMap<>();
     public final ArrayList<ServerPlayer> testerBypassers = new ArrayList<>();
     public final ArrayList<ServerPlayer> playersWithTracker = new ArrayList<>();
-    public SabotageActive(SabotageConfig config, GameSpace gameSpace, SabotageMap map, ServerLevel world, GameActivity activity) {
+    public SabotageActive(SabotageConfig config, GameSpace gameSpace, SabotageMap map, ServerLevel level, GameActivity activity) {
         this.config = config;
         this.gameSpace = gameSpace;
         this.map = map;
-        this.world = world;
+        this.level = level;
 
 
         this.stats = gameSpace.getStatistics().bundle(MOD_ID);
         this.activity = activity;
         this.karmaManager = new KarmaManager(stats);
-        this.taskScheduler = new TaskScheduler(gameSpace, world);
+        this.taskScheduler = new TaskScheduler(gameSpace, level);
         this.teamManager = new TeamManager(gameSpace, activity, this, config);
         this.chatManager = new ChatManager(gameSpace, config, teamManager);
         this.combatManager = new CombatManager(gameSpace, teamManager, karmaManager, config, this);
         Sabotage.activeGames.add(this);
     }
 
-    public ServerLevel getWorld() {
-        return world;
+    public ServerLevel getLevel() {
+        return level;
     }
     private static void gameStartedRules(GameActivity activity) {
         activity.allow(GameRuleType.FALL_DAMAGE);
@@ -168,8 +166,8 @@ public class SabotageActive {
         activity.listen(BlockRandomTickEvent.EVENT, (_block, _pos, _state) -> EventResult.DENY);
         activity.listen(FlowerPotModifyEvent.EVENT, ((_plr, _hand, _result) -> EventResult.DENY));
         activity.listen(BlockUseEvent.EVENT, (plr, _hand, result) -> {
-            ServerLevel world = plr.level();
-            Block block = world.getBlockState(result.getBlockPos()).getBlock();
+            ServerLevel level = plr.level();
+            Block block = level.getBlockState(result.getBlockPos()).getBlock();
             // this is possibly the worst code i've written in my life
             if (block instanceof AnvilBlock || block instanceof AbstractFurnaceBlock ||
                     block instanceof StonecutterBlock || block instanceof ChiseledBookShelfBlock ||
@@ -208,7 +206,7 @@ public class SabotageActive {
     }
 
     public void updateSidebars() {
-        long timeLeft = (long) Math.abs(Math.floor((world.getGameTime() / 20) - (startTime / 20)) - config.countdownTime() - config.gracePeriod() - config.timeLimit());
+        long timeLeft = (long) Math.abs(Math.floor((level.getGameTime() / 20) - (startTime / 20)) - config.countdownTime() - config.gracePeriod() - config.timeLimit());
         long minutes = timeLeft / 60;
         String seconds;
         if (timeLeft % 60 > 10) {
@@ -296,11 +294,11 @@ public class SabotageActive {
                 (role == Roles.DETECTIVE) ? Blocks.BLUE_WOOL :
                         (role == Roles.INNOCENT) ? Blocks.GREEN_WOOL : Blocks.WHITE_WOOL;
         for (BlockPos testerWool : map.getTesterWools()) {
-            world.setBlockAndUpdate(testerWool, wool.defaultBlockState());
+            level.setBlockAndUpdate(testerWool, wool.defaultBlockState());
         }
-        taskScheduler.addTask(new Task((int) (world.getGameTime() + 200), (gameSpace) -> {
+        taskScheduler.addTask(new Task((int) (level.getGameTime() + 200), (gameSpace) -> {
             for (BlockPos testerWool : map.getTesterWools()) {
-                world.setBlockAndUpdate(testerWool, Blocks.WHITE_WOOL.defaultBlockState());
+                level.setBlockAndUpdate(testerWool, Blocks.WHITE_WOOL.defaultBlockState());
             }
             isTesterOnCooldown = false;
         }));
@@ -315,7 +313,7 @@ public class SabotageActive {
             plr.playSound(SoundEvents.ARMOR_EQUIP_IRON.value(), 1, 0.5f);
             for (int i = 1; i <= 20; i++) {
                 int finalI = i;
-                taskScheduler.addTask(new Task((int) (world.getGameTime() + (10 * i)), (gameSpace) -> {
+                taskScheduler.addTask(new Task((int) (level.getGameTime() + (10 * i)), (gameSpace) -> {
                     plr.playSound(
                             SoundEvents.NOTE_BLOCK_BASS.value(),
                             1.0f,
@@ -330,7 +328,7 @@ public class SabotageActive {
         BodyResult result = combatManager.getBodyRole(entity);
         if (result.plr() != null) {
             applyTestingEffects(plr, true);
-            int revealTime = (int) world.getGameTime() + 200;
+            int revealTime = (int) level.getGameTime() + 200;
             Consumer<GameSpace> func = (gameSpace) -> {
                 gameSpace.getPlayers().sendMessage(
                         Component.translatable("sabotage.detective_shears_reveal",
@@ -362,7 +360,7 @@ public class SabotageActive {
                     final ServerPlayer playerEntity = (ServerPlayer) entity;
                     applyTestingEffects(plr, true);
                     applyTestingEffects(playerEntity, true);
-                    int revealTime = (int) world.getGameTime() + 200;
+                    int revealTime = (int) level.getGameTime() + 200;
                     Consumer<GameSpace> func = (gameSpace) -> {
                         Roles plrRole = teamManager.getPlayerRole(playerEntity);
                         gameSpace.getPlayers().sendMessage(
@@ -391,11 +389,11 @@ public class SabotageActive {
             plr.randomTeleport(pos.x(), pos.y(), pos.z(), true);
             applyTestingEffects(plr, false);
             for (BlockPos blockPos : map.getTesterCloseRegion().getBounds()) {
-                world.setBlockAndUpdate(blockPos, Blocks.IRON_BARS.defaultBlockState());
+                level.setBlockAndUpdate(blockPos, Blocks.IRON_BARS.defaultBlockState());
             }
-            world.playSound(null, plr.blockPosition(), SoundEvents.IRON_DOOR_CLOSE, SoundSource.BLOCKS, 1, 0.5f);
+            level.playSound(null, plr.blockPosition(), SoundEvents.IRON_DOOR_CLOSE, SoundSource.BLOCKS, 1, 0.5f);
             gameSpace.getPlayers().sendMessage(Component.translatable("sabotage.tester.message", plr.getName(), 10).withStyle(ChatFormatting.YELLOW));
-            int revealTime = (int) world.getGameTime() + 200;
+            int revealTime = (int) level.getGameTime() + 200;
             Consumer<GameSpace> reminder = (gameSpace) -> {
                 gameSpace.getPlayers().sendMessage(Component.translatable("sabotage.tester.message", plr.getName(), 5).withStyle(ChatFormatting.YELLOW));
             };
@@ -408,16 +406,16 @@ public class SabotageActive {
                 // isTesterOnCooldown is changed in this method
                 changeTesterWool(plrRole);
                 for (BlockPos blockPos : map.getTesterCloseRegion().getBounds()) {
-                    world.setBlockAndUpdate(blockPos, Blocks.AIR.defaultBlockState());
+                    level.setBlockAndUpdate(blockPos, Blocks.AIR.defaultBlockState());
                 }
-                world.playSound(null, plr.blockPosition(), SoundEvents.IRON_DOOR_OPEN, SoundSource.BLOCKS, 1, 0.5f);
+                level.playSound(null, plr.blockPosition(), SoundEvents.IRON_DOOR_OPEN, SoundSource.BLOCKS, 1, 0.5f);
             };
 
             // sounds for testing
             for (int i = 1; i <= 20; i++) {
                 int finalI = i;
-                taskScheduler.addTask(new Task((int) (world.getGameTime() + (10 * i)), (gameSpace) -> {
-                    world.playSound(null,
+                taskScheduler.addTask(new Task((int) (level.getGameTime() + (10 * i)), (gameSpace) -> {
+                    level.playSound(null,
                             pos.x(),
                             pos.y(),
                             pos.z(),
@@ -457,7 +455,7 @@ public class SabotageActive {
         if (gameState == GameStates.ENDED) return;
         PlayerSet plrs = gameSpace.getPlayers();
         taskScheduler.onGameEnd();
-        endTime = world.getGameTime();
+        endTime = level.getGameTime();
         gameState = GameStates.ENDED;
         rules(activity);
         plrs.sendMessage(Component.translatable("sabotage.game_end", Component.literal(getPlayerNamesInSet(teamManager.initialSaboteurs)).withStyle(ChatFormatting.RED)));
@@ -485,15 +483,15 @@ public class SabotageActive {
                 .setGenerator(map.asChunkGenerator(gameSpace.getServer()))
                 .setDimensionType(ResourceKey.create(Registries.DIMENSION_TYPE, config.dimension()));
                 //.setTimeOfDay(config.time());
-        ServerLevel world = gameSpace.getLevels().add(levelConfig);
+        ServerLevel level = gameSpace.getLevels().add(levelConfig);
         gameSpace.setActivity(activity -> {
-            SabotageActive game = new SabotageActive(config, gameSpace, map, world, activity);
-            game.startTime = world.getGameTime();
+            SabotageActive game = new SabotageActive(config, gameSpace, map, level, activity);
+            game.startTime = level.getGameTime();
             game.widgets = GlobalWidgets.addTo(activity);
             game.globalSidebar = game.widgets.addSidebar(Component.translatable("gameType.sabotage.sabotage").withStyle(ChatFormatting.GOLD));
             game.globalSidebar.setPriority(Sidebar.Priority.LOW);
             game.globalSidebar.addLines(Component.translatable("sabotage.sidebar.countdown"));
-            world.getGameRules().set(GameRules.LOCATOR_BAR, false, gameSpace.getServer());
+            level.getGameRules().set(GameRules.LOCATOR_BAR, false, gameSpace.getServer());
             rules(activity);
             activity.listen(GameActivityEvents.TICK, () -> game.onTick(gameSpace.getPlayers()));
             activity.listen(PlayerDeathEvent.EVENT, game::onDeath);
@@ -524,12 +522,12 @@ public class SabotageActive {
                 }
                 return EventResult.PASS;
             });
-            map.setWorld(world);
+            map.setLevel(level);
             map.generateChests();
             PlayerSet plrs = game.gameSpace.getPlayers();
 
             for (ServerPlayer plr : plrs) {
-                game.map.spawnPlayer(world, plr);
+                game.map.spawnPlayer(level, plr);
                 game.globalSidebar.addPlayer(plr);
                 plr.getInventory().setItem(8, new ItemStack(SHOP_ITEM));
                 plr.setSharedFlagOnFire(false);
@@ -565,11 +563,11 @@ public class SabotageActive {
         // TNT ignites on place
         if (item.is(Items.TNT)) {
             BlockPos pos = blockHitResult.getBlockPos().relative(blockHitResult.getDirection());;
-            Level world = player.level();
-            if (world.getBlockState(pos).getBlock() == Blocks.AIR) {
-                world.addFreshEntity(new PrimedTnt(world, pos.getX(), pos.getY(), pos.getZ(), player));
+            Level level = player.level();
+            if (level.getBlockState(pos).getBlock() == Blocks.AIR) {
+                level.addFreshEntity(new PrimedTnt(level, pos.getX(), pos.getY(), pos.getZ(), player));
                 item.shrink(1);
-                world.playSound(null, pos, SoundEvents.TNT_PRIMED, SoundSource.BLOCKS);
+                level.playSound(null, pos, SoundEvents.TNT_PRIMED, SoundSource.BLOCKS);
                 return InteractionResult.CONSUME;
             }
         }
@@ -577,15 +575,15 @@ public class SabotageActive {
             BlockPos placementPos = blockHitResult.getBlockPos().relative(blockHitResult.getDirection());
             trappedChests.put(placementPos, player);
             item.shrink(1);
-            world.setBlockAndUpdate(placementPos, Blocks.TRAPPED_CHEST.getStateForPlacement(new BlockPlaceContext(player, hand, item, blockHitResult)));
+            level.setBlockAndUpdate(placementPos, Blocks.TRAPPED_CHEST.getStateForPlacement(new BlockPlaceContext(player, hand, item, blockHitResult)));
             return InteractionResult.SUCCESS;
         }
         // trapped chests explode when interacted
         BlockPos pos = blockHitResult.getBlockPos();
         Vec3 centerPos = pos.getCenter();
-        if (world.getBlockState(pos).getBlock() instanceof TrappedChestBlock) {
-            world.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
-            world.explode(trappedChests.get(pos), centerPos.x(), centerPos.y(), centerPos.z(), 4, Level.ExplosionInteraction.TNT);
+        if (level.getBlockState(pos).getBlock() instanceof TrappedChestBlock) {
+            level.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
+            level.explode(trappedChests.get(pos), centerPos.x(), centerPos.y(), centerPos.z(), 4, Level.ExplosionInteraction.TNT);
             return InteractionResult.CONSUME;
         }
         return InteractionResult.PASS;
@@ -598,7 +596,7 @@ public class SabotageActive {
             Block block = explosion.level().getBlockState(blockPos).getBlock();
             if (block instanceof TesterSign || block instanceof WallTesterSign) {
                 LivingEntity entity = explosion.getIndirectSourceEntity();
-                world.playSound(explosion.getDirectSourceEntity(),
+                level.playSound(explosion.getDirectSourceEntity(),
                         blockPos,
                         SoundEvents.ANVIL_DESTROY,
                         SoundSource.BLOCKS,
@@ -622,14 +620,14 @@ public class SabotageActive {
                 }
             } else {
                 final BlockPos blockPos1 = blockPos;
-                final BlockState blockState = world.getBlockState(blockPos);
+                final BlockState blockState = level.getBlockState(blockPos);
                 if (blockState.getBlock() == Blocks.AIR) {
                     continue;
                 }
                 i++;
-                taskScheduler.addTask(new Task((int) world.getGameTime() + (((100 + (int) (Math.random() *  200)) + (20 * i))),
+                taskScheduler.addTask(new Task((int) level.getGameTime() + (((100 + (int) (Math.random() *  200)) + (20 * i))),
                         (_gameSpace) -> {
-                            world.setBlockAndUpdate(blockPos1, blockState);
+                            level.setBlockAndUpdate(blockPos1, blockState);
                         }
                         ));
             }
@@ -782,7 +780,7 @@ public class SabotageActive {
     }
 
     private JoinAcceptorResult onAccept(JoinAcceptor acceptor) {
-        return acceptor.teleport(this.world, new Vec3(0, 66, 0)).thenRunForEach((plr) -> {
+        return acceptor.teleport(this.level, new Vec3(0, 66, 0)).thenRunForEach((plr) -> {
             // player joined after game start, so they're technically dead
             plr.setGameMode(GameType.SPECTATOR);
             globalSidebar.addPlayer(plr);
@@ -839,7 +837,7 @@ public class SabotageActive {
         }
     }
     public void onTick(PlayerSet plrs) {
-        long time = world.getGameTime();
+        long time = level.getGameTime();
         taskScheduler.onTick();
         chatManager.onTick();
         switch(gameState) {
@@ -899,7 +897,7 @@ public class SabotageActive {
             case ACTIVE -> {
                 if (time % 20 == 0) {
                     // second has passed
-                    double timePassed = Math.floor((world.getGameTime() / 20) - (startTime / 20)) - config.countdownTime() - config.gracePeriod();
+                    double timePassed = Math.floor((level.getGameTime() / 20) - (startTime / 20)) - config.countdownTime() - config.gracePeriod();
                     int timeLimit = config.timeLimit();
                     if (timePassed >= timeLimit) {
                         End(EndReason.TIMEOUT);
@@ -919,7 +917,7 @@ public class SabotageActive {
             case ENDED -> {
                 if (time % 20 == 0) {
                     // second has passed
-                    double timePassed = world.getGameTime() / 20 - endTime / 20;
+                    double timePassed = level.getGameTime() / 20 - endTime / 20;
                     if (timePassed >= config.endDelay()) {
                         gameSpace.close(GameCloseReason.FINISHED);
                     }

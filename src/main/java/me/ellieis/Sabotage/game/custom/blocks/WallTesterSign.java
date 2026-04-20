@@ -26,13 +26,13 @@ public class WallTesterSign extends WallSignBlock implements PolymerBlock {
     }
 
     @Override
-    public void setPlacedBy(Level world, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack itemStack) {
-        BaseTesterSign.onPlaced(world, pos);
+    public void setPlacedBy(Level level, BlockPos pos, BlockState state, @Nullable LivingEntity placer, ItemStack itemStack) {
+        BaseTesterSign.onPlaced(level, pos);
     }
 
     @Override
-    public InteractionResult useWithoutItem(BlockState state, Level world, BlockPos pos, Player player, BlockHitResult hit) {
-        BaseTesterSign.onUse(world, player, pos);
+    public InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
+        BaseTesterSign.onUse(level, player, pos);
         return InteractionResult.FAIL;
     }
 

@@ -18,7 +18,7 @@ import net.minecraft.world.level.chunk.ChunkGenerator;
 import xyz.nucleoid.map_templates.MapTemplate;
 import xyz.nucleoid.map_templates.TemplateRegion;
 import xyz.nucleoid.plasmid.api.game.GameOpenException;
-import xyz.nucleoid.plasmid.api.game.world.generator.TemplateChunkGenerator;
+import xyz.nucleoid.plasmid.api.game.level.generator.TemplateChunkGenerator;
 import xyz.nucleoid.plasmid.api.util.PlayerRef;
 
 
@@ -35,7 +35,7 @@ public class SabotageMap {
     private final List<ChestInfo> chestSpawns = new ArrayList<>();
     private final Map<PlayerRef, Vec3> playerSpawnPos = new HashMap<>();
     private final int playerCount;
-    private ServerLevel world;
+    private ServerLevel level;
 
     public SabotageMap(MapTemplate template, SabotageConfig config, int playerCount) {
         this.config = config;
@@ -65,8 +65,8 @@ public class SabotageMap {
             }
         });
     }
-    public void setWorld(ServerLevel world) {
-        this.world = world;
+    public void setLevel(ServerLevel level) {
+        this.level = level;
     }
 
     public void generateChests() {
@@ -77,7 +77,7 @@ public class SabotageMap {
         for (ChestInfo chestInfo : chestSpawns) {
             if (chestCount > 0) {
                 chestCount--;
-                world.setBlockAndUpdate(chestInfo.pos(), SABOTAGE_CHEST.defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, chestInfo.direction()));
+                level.setBlockAndUpdate(chestInfo.pos(), SABOTAGE_CHEST.defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, chestInfo.direction()));
             } else {
                 break;
             }
@@ -103,10 +103,10 @@ public class SabotageMap {
         return this.playerSpawnPos;
     }
 
-    public void spawnPlayer(ServerLevel world, ServerPlayer plr) {
+    public void spawnPlayer(ServerLevel level, ServerPlayer plr) {
         TemplateRegion spawn = spawns.get(new Random().nextInt(spawns.size()));
         Vec3 pos = spawn.getBounds().centerBottom();
-        plr.teleportTo(world, pos.x(), pos.y(), pos.z(), new HashSet<>(), spawn.getData().getFloatOr("Rotation", 0f), 0, true);
+        plr.teleportTo(level, pos.x(), pos.y(), pos.z(), new HashSet<>(), spawn.getData().getFloatOr("Rotation", 0f), 0, true);
         plr.setOnGround(true);
         plr.setDeltaMovement(0,0,0);
         this.playerSpawnPos.put(new PlayerRef(plr.getUUID()), pos);

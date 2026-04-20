@@ -14,7 +14,6 @@ import net.minecraft.server.dialog.body.PlainMessage;
 import net.minecraft.server.dialog.NoticeDialog;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Item.Properties;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.nbt.StringTag;
@@ -43,8 +42,8 @@ public class ShopItem extends Item implements PolymerItem {
         super(settings);
     }
     @Override
-    public InteractionResult use(Level world, Player plr, InteractionHand hand) {
-        if (world.isClientSide()) {
+    public InteractionResult use(Level level, Player plr, InteractionHand hand) {
+        if (level.isClientSide()) {
             return InteractionResult.PASS;
         }
         if (!GameSpaceManager.get().inGame(plr)) {
@@ -52,7 +51,7 @@ public class ShopItem extends Item implements PolymerItem {
         }
         SabotageActive game = null;
         for (SabotageActive game2 : Sabotage.activeGames) {
-            if (game2.getWorld().equals(world)){
+            if (game2.getLevel().equals(level)){
                 game = game2;
                 break;
             }
