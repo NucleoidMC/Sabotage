@@ -583,7 +583,7 @@ public class SabotageActive {
         Vec3 centerPos = pos.getCenter();
         if (level.getBlockState(pos).getBlock() instanceof TrappedChestBlock) {
             level.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
-            level.explode(trappedChests.get(pos), centerPos.x(), centerPos.y(), centerPos.z(), 4, Level.ExplosionInteraction.TNT);
+            level.explode(null, Explosion.getDefaultDamageSource(level, trappedChests.get(pos)), null, centerPos.x(), centerPos.y(), centerPos.z(), 4, true, Level.ExplosionInteraction.TNT);
             return InteractionResult.CONSUME;
         }
         return InteractionResult.PASS;
@@ -659,6 +659,7 @@ public class SabotageActive {
         if (result != EventResult.PASS) {
             return result;
         }
+        plr.getInventory().removeItem(new ItemStack(SHOP_ITEM));
         plr.getInventory().dropAll();
         EndReason endReason = checkWinCondition();
         if (endReason != EndReason.NONE) {

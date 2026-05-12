@@ -214,6 +214,7 @@ public class CombatManager {
         ((MannequinAccessor) mannequin).sabotage$setMannequinProfile(ResolvableProfile.createUnresolved(plr.getUUID()));
         mannequin.setPosRaw(plr.getX(), plr.getY(), plr.getZ());
         mannequin.setPose(Pose.SLEEPING);
+        mannequin.setInvulnerable(true);
         BodyData bodyData = new BodyData(plrRole, mannequin);
         level.addFreshEntity(mannequin);
         bodies.put(plr, bodyData);

@@ -7,11 +7,11 @@ import me.ellieis.Sabotage.game.Roles;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
 import net.fabricmc.fabric.api.networking.v1.context.PacketContext;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.server.dialog.DialogAction;
-import net.minecraft.server.dialog.CommonDialogData;
+import net.minecraft.server.dialog.*;
+import net.minecraft.server.dialog.action.Action;
+import net.minecraft.server.dialog.action.StaticAction;
 import net.minecraft.server.dialog.body.DialogBody;
 import net.minecraft.server.dialog.body.PlainMessage;
-import net.minecraft.server.dialog.NoticeDialog;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -35,8 +35,8 @@ import java.util.Optional;
 import static me.ellieis.Sabotage.Sabotage.SHOP_BUY_PACKET_ID;
 
 public class ShopItem extends Item implements PolymerItem {
-    private static PlainMessage itemBody(String translationKey, String itemId) {
-        return new PlainMessage(Component.translatable(translationKey).withStyle(style -> style.withClickEvent(new ClickEvent.Custom(SHOP_BUY_PACKET_ID, Optional.of(StringTag.valueOf(itemId)))).withColor(ChatFormatting.BLUE)), 300);
+    private static ActionButton itemBody(String translationKey, String itemId) {
+        return new ActionButton(new CommonButtonData(Component.translatable(translationKey), 300), Optional.of(new StaticAction(new ClickEvent.Custom(SHOP_BUY_PACKET_ID, Optional.of(StringTag.valueOf(itemId))))));
     }
     public ShopItem(Properties settings) {
         super(settings);
@@ -62,26 +62,31 @@ public class ShopItem extends Item implements PolymerItem {
         Roles role = game.teamManager.getPlayerRole((ServerPlayer) plr);
         var body = new ArrayList<DialogBody>();
         body.add(new PlainMessage(Component.translatable("sabotage.shop.desc"), 300));
+        ArrayList<ActionButton> actions = new ArrayList<>();
         switch (role) {
             case INNOCENT:
-                body.add(itemBody("sabotage.shop.wooden_spear", "wooden_spear"));
-                body.add(itemBody("sabotage.shop.tracker", "player_tracker"));
+                actions.add(itemBody("sabotage.shop.wooden_spear", "wooden_spear"));
+                actions.add(itemBody("sabotage.shop.tracker", "player_tracker"));
                 break;
             case DETECTIVE:
-                body.add(itemBody("sabotage.shop.tester_recharge", "tester_recharge"));
-                body.add(itemBody("sabotage.shop.tracker", "player_tracker"));
+                actions.add(itemBody("sabotage.shop.tester_recharge", "tester_recharge"));
+                actions.add(itemBody("sabotage.shop.tracker", "player_tracker"));
                 break;
             case SABOTEUR:
-                body.add(itemBody("sabotage.shop.trapped_chest", "trapped_chest"));
-                body.add(itemBody("sabotage.shop.tester_bypass", "tester_bypass"));
+                actions.add(itemBody("sabotage.shop.trapped_chest", "trapped_chest"));
+                actions.add(itemBody("sabotage.shop.tester_bypass", "tester_bypass"));
                 break;
             case NONE:
             default:
                 body.add(new PlainMessage(Component.translatable("sabotage.shop.no_role"), 300));
         }
-
-        var dialog = new NoticeDialog(new CommonDialogData(getName(plr.getItemInHand(hand)), Optional.empty(), true, false, DialogAction.CLOSE, body, List.of()), NoticeDialog.DEFAULT_ACTION);
-        plr.openDialog(Holder.direct(dialog));
+        if (role.equals(Roles.NONE)) {
+            var dialog = new NoticeDialog(new CommonDialogData(getName(plr.getItemInHand(hand)), Optional.empty(), true, false, DialogAction.CLOSE, body, List.of()), NoticeDialog.DEFAULT_ACTION);
+            plr.openDialog(Holder.direct(dialog));
+        } else {
+            var dialog = new MultiActionDialog(new CommonDialogData(getName(plr.getItemInHand(hand)), Optional.empty(), true, false, DialogAction.CLOSE, body, List.of()), actions, Optional.empty(), 1);
+            plr.openDialog(Holder.direct(dialog));
+        }
         return InteractionResult.FAIL;
     }
     @Override
