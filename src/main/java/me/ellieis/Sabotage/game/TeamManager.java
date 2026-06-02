@@ -147,21 +147,21 @@ public class TeamManager {
     }
 
     public PlayerTeam getPlayerTeam(ServerPlayer plr, boolean isSab) {
-        Roles role = getPlayerRole(plr);
+        Role role = getPlayerRole(plr);
         if (isSab) {
-            if (role == Roles.SABOTEUR) {
+            if (role == Role.SABOTEUR) {
                 return sab;
-            } else if (role == Roles.DETECTIVE) {
+            } else if (role == Role.DETECTIVE) {
                 return det;
-            } else if (role == Roles.INNOCENT) {
+            } else if (role == Role.INNOCENT) {
                 return inno;
             } else {
                 return deadTeam;
             }
         } else {
-            if (role == Roles.DETECTIVE) {
+            if (role == Role.DETECTIVE) {
                 return det;
-            } else if (role == Roles.NONE) {
+            } else if (role == Role.NONE) {
                 return deadTeam;
             } else {
                 return unknown;
@@ -171,14 +171,14 @@ public class TeamManager {
     public void setPlayerTeams() {
         PlayerSet plrs = game.getAlivePlayers();
         for (ServerPlayer plr : plrs) {
-            Roles role = getPlayerRole(plr);
+            Role role = getPlayerRole(plr);
             for (ServerPlayer otherPlr : plrs) {
-                if (role == Roles.INNOCENT || role == Roles.DETECTIVE) {
+                if (role == Role.INNOCENT || role == Role.DETECTIVE) {
                     plr.connection.send(ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(det, true));
                     plr.connection.send(ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(unknown, true));
                     plr.connection.send(ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(deadTeam, true));
                     playerTeamPacket(getPlayerTeam(otherPlr, false), plr, otherPlr, ClientboundSetPlayerTeamPacket.Action.ADD);
-                } else if (role == Roles.SABOTEUR) {
+                } else if (role == Role.SABOTEUR) {
                     plr.connection.send(ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(sab, true));
                     plr.connection.send(ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(det, true));
                     plr.connection.send(ClientboundSetPlayerTeamPacket.createAddOrModifyPacket(inno, true));
@@ -224,7 +224,7 @@ public class TeamManager {
         // role colors
         for (ServerPlayer player: plrs) {
             for (ServerPlayer plr: plrs) {
-                player.connection.send(updatePlayerName(plr, getPlayerRole(player) == Roles.SABOTEUR));
+                player.connection.send(updatePlayerName(plr, getPlayerRole(player) == Role.SABOTEUR));
             }
         }
         setPlayerTeams();
@@ -236,21 +236,21 @@ public class TeamManager {
         game.setSidebars();
     }
 
-    public Roles getPlayerRole(ServerPlayer plr) {
+    public Role getPlayerRole(ServerPlayer plr) {
         if (innocents.contains(plr)) {
-            return Roles.INNOCENT;
+            return Role.INNOCENT;
         } else if (detectives.contains(plr)) {
-            return Roles.DETECTIVE;
+            return Role.DETECTIVE;
         } else if (saboteurs.contains(plr)) {
-            return Roles.SABOTEUR;
+            return Role.SABOTEUR;
         }
-        return Roles.NONE;
+        return Role.NONE;
     }
 
-    public static ChatFormatting getRoleColor(Roles role) {
-        return (role == Roles.INNOCENT) ? ChatFormatting.GREEN :
-                (role == Roles.DETECTIVE) ? ChatFormatting.BLUE :
-                        (role == Roles.SABOTEUR) ? ChatFormatting.RED : ChatFormatting.RESET;
+    public static ChatFormatting getRoleColor(Role role) {
+        return (role == Role.INNOCENT) ? ChatFormatting.GREEN :
+                (role == Role.DETECTIVE) ? ChatFormatting.BLUE :
+                        (role == Role.SABOTEUR) ? ChatFormatting.RED : ChatFormatting.RESET;
     }
 
 }

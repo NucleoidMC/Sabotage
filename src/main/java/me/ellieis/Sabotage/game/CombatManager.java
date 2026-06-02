@@ -50,12 +50,12 @@ public class CombatManager {
     }
 
     public void onDamage(ServerPlayer plr, DamageSource damageSource, float damageAmount) {
-        Roles receiverRole = teamManager.getPlayerRole(plr);
-        if (receiverRole == Roles.DETECTIVE) {
+        Role receiverRole = teamManager.getPlayerRole(plr);
+        if (receiverRole == Role.DETECTIVE) {
             Entity attackerEntity = damageSource.getEntity();
             if (attackerEntity instanceof ServerPlayer attacker) {
-                Roles attackerRole = teamManager.getPlayerRole(attacker);
-                if (attackerRole != Roles.SABOTEUR) {
+                Role attackerRole = teamManager.getPlayerRole(attacker);
+                if (attackerRole != Role.SABOTEUR) {
                     attacker.sendSystemMessage(Component.translatable("sabotage.damage_detective_message", Component.translatable("sabotage.detective").withStyle(ChatFormatting.BLUE)));
                     attacker.playSound(SoundEvents.ANVIL_PLACE, 1, 0.5f);
                 }
@@ -73,18 +73,18 @@ public class CombatManager {
 
     public EventResult onDeath(ServerPlayer plr, DamageSource damageSource) {
         Entity entityAttacker = damageSource.getEntity();
-        Roles plrRole = teamManager.getPlayerRole(plr);
+        Role plrRole = teamManager.getPlayerRole(plr);
         plr.setGameMode(GameType.SPECTATOR);
         plr.playSound(SoundEvents.COW_SOUNDS.get(CowSoundVariants.SoundSet.CLASSIC).deathSound().value(), 1, 0.7f);
         createPlayerBody(plr, game.getLevel(), plrRole);
         teamManager.dead.add(plr);
         GameSpacePlayers plrSet = gameSpace.getPlayers();
         plrSet.forEach((otherPlr) -> teamManager.playerTeamPacket(teamManager.deadTeam, otherPlr, plr, ClientboundSetPlayerTeamPacket.Action.ADD));
-        if (plrRole == Roles.SABOTEUR) {
+        if (plrRole == Role.SABOTEUR) {
             plrSet.forEach((otherPlr) -> {
-                Roles role = teamManager.getPlayerRole(otherPlr);
-                teamManager.playerTeamPacket((role == Roles.DETECTIVE) ?
-                                teamManager.det : (role == Roles.NONE) ?
+                Role role = teamManager.getPlayerRole(otherPlr);
+                teamManager.playerTeamPacket((role == Role.DETECTIVE) ?
+                                teamManager.det : (role == Role.NONE) ?
                                 teamManager.deadTeam : teamManager.unknown,
                         plr, otherPlr, ClientboundSetPlayerTeamPacket.Action.ADD);
             });
@@ -115,7 +115,7 @@ public class CombatManager {
             finalHit = null;
         }
         accumulatedDamage.forEach((ServerPlayer attacker, Float damage) -> {
-            Roles attackerRole = teamManager.getPlayerRole(attacker);
+            Role attackerRole = teamManager.getPlayerRole(attacker);
             float karmaRatio = damage / plr.getMaxHealth();
             boolean isAssist = true;
             if (finalHit != null && finalHit == attacker) {
@@ -160,13 +160,13 @@ public class CombatManager {
             }
         });
 
-        if (plrRole == Roles.SABOTEUR) {
+        if (plrRole == Role.SABOTEUR) {
             teamManager.saboteurs.remove(plr);
             game.saboteurSidebar.removePlayer(plr);
-        } else if (plrRole == Roles.DETECTIVE) {
+        } else if (plrRole == Role.DETECTIVE) {
             teamManager.detectives.remove(plr);
             game.detectiveSidebar.removePlayer(plr);
-        } else if (plrRole == Roles.INNOCENT) {
+        } else if (plrRole == Role.INNOCENT) {
             teamManager.innocents.remove(plr);
             game.innocentSidebar.removePlayer(plr);
         }
@@ -175,7 +175,7 @@ public class CombatManager {
     }
 
     private Component createAttackerKillMessage(ServerPlayer plr, int karma, boolean assist) {
-        Roles role = teamManager.getPlayerRole(plr);
+        Role role = teamManager.getPlayerRole(plr);
         ChatFormatting victimColor = TeamManager.getRoleColor(role);
         if (assist) {
             return Component.translatable("sabotage.kill_message.assist", plr.getName().copy().withStyle(victimColor), Component.literal("(" + karma + " karma)").withStyle((karma >= 0) ? ChatFormatting.GREEN : ChatFormatting.RED)).withStyle(ChatFormatting.YELLOW);
@@ -186,7 +186,7 @@ public class CombatManager {
                 Component.literal("(" + karma + " karma)").withStyle((karma >= 0) ? ChatFormatting.GREEN : ChatFormatting.RED)).withStyle(ChatFormatting.YELLOW);
     }
 
-    private void awardPlayerKill(ServerPlayer attacker, ServerPlayer plr, Roles plrRole, int innocentKarma, int detectiveKarma, int saboteurKarma, boolean assist) {
+    private void awardPlayerKill(ServerPlayer attacker, ServerPlayer plr, Role plrRole, int innocentKarma, int detectiveKarma, int saboteurKarma, boolean assist) {
         // attacker is confirmed innocent or detective
         switch(plrRole) {
             case INNOCENT -> {
@@ -209,7 +209,7 @@ public class CombatManager {
         }
     }
 
-    private void createPlayerBody(ServerPlayer plr, ServerLevel level, Roles plrRole) {
+    private void createPlayerBody(ServerPlayer plr, ServerLevel level, Role plrRole) {
         Mannequin mannequin = new Mannequin(EntityType.MANNEQUIN, level);
         ((MannequinAccessor) mannequin).sabotage$setMannequinProfile(ResolvableProfile.createUnresolved(plr.getUUID()));
         mannequin.setPosRaw(plr.getX(), plr.getY(), plr.getZ());
@@ -222,7 +222,7 @@ public class CombatManager {
     }
 
     public BodyResult getBodyRole(LivingEntity entity) {
-        AtomicReference<Roles> role = new AtomicReference<>(Roles.NONE);
+        AtomicReference<Role> role = new AtomicReference<>(Role.NONE);
         AtomicReference<ServerPlayer> plrAtom = new AtomicReference<>();
         if (entity instanceof Mannequin) {
             bodies.forEach((plr, bodyData) -> {
@@ -239,6 +239,6 @@ public class CombatManager {
 
     }
 
-    record BodyData(Roles role, Mannequin mannequin) {
+    record BodyData(Role role, Mannequin mannequin) {
     }
 }

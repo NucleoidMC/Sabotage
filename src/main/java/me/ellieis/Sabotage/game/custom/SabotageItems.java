@@ -4,7 +4,7 @@ import eu.pb4.polymer.core.api.item.PolymerBlockItem;
 import eu.pb4.polymer.core.api.item.PolymerCreativeModeTabUtils;
 import me.ellieis.Sabotage.Sabotage;
 import me.ellieis.Sabotage.game.custom.items.DetectiveShears;
-import me.ellieis.Sabotage.game.custom.items.ShopItem;
+import me.ellieis.Sabotage.game.custom.items.ShopCartItem;
 import me.ellieis.Sabotage.game.custom.items.TesterSign;
 import net.fabricmc.fabric.api.creativetab.v1.FabricCreativeModeTab;
 import net.minecraft.world.item.Item;
@@ -21,7 +21,7 @@ public class SabotageItems {
     public static final Item TESTER_WOOL = new PolymerBlockItem(SabotageBlocks.TESTER_WOOL, new Item.Properties().useBlockDescriptionPrefix().setId(ResourceKey.create(Registries.ITEM, Sabotage.identifier("tester_wool"))), Items.WHITE_WOOL);
     public static final Item TESTER_SIGN = new TesterSign(new Item.Properties().useBlockDescriptionPrefix().setId(ResourceKey.create(Registries.ITEM, Sabotage.identifier("tester_sign"))), SabotageBlocks.TESTER_SIGN, SabotageBlocks.WALL_TESTER_SIGN);
     public static final Item DETECTIVE_SHEARS = new DetectiveShears(new Item.Properties().useItemDescriptionPrefix().setId(ResourceKey.create(Registries.ITEM, Sabotage.identifier("detective_shears"))).durability(101));
-    public static final Item SHOP_ITEM = new ShopItem(new Item.Properties().useItemDescriptionPrefix().setId(ResourceKey.create(Registries.ITEM, Sabotage.identifier("shop_item"))).stacksTo(1));
+    public static final Item SHOP_ITEM = new ShopCartItem(new Item.Properties().useItemDescriptionPrefix().setId(ResourceKey.create(Registries.ITEM, Sabotage.identifier("shop_item"))).stacksTo(1));
 
     public static final CreativeModeTab ITEM_GROUP = FabricCreativeModeTab.builder()
             .title(Component.translatable("gameType.sabotage.sabotage"))
