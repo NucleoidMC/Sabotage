@@ -18,7 +18,7 @@ import net.minecraft.network.chat.Component;
 
 public class SabotageItems {
     public static final Item SABOTAGE_CHEST = new PolymerBlockItem(SabotageBlocks.SABOTAGE_CHEST, new Item.Properties().useBlockDescriptionPrefix().setId(ResourceKey.create(Registries.ITEM, Sabotage.identifier("sabotage_chest"))), Items.CHEST);
-    public static final Item TESTER_WOOL = new PolymerBlockItem(SabotageBlocks.TESTER_WOOL, new Item.Properties().useBlockDescriptionPrefix().setId(ResourceKey.create(Registries.ITEM, Sabotage.identifier("tester_wool"))), Items.WHITE_WOOL);
+    public static final Item TESTER_WOOL = new PolymerBlockItem(SabotageBlocks.TESTER_WOOL, new Item.Properties().useBlockDescriptionPrefix().setId(ResourceKey.create(Registries.ITEM, Sabotage.identifier("tester_wool"))), Items.WOOL.white());
     public static final Item TESTER_SIGN = new TesterSign(new Item.Properties().useBlockDescriptionPrefix().setId(ResourceKey.create(Registries.ITEM, Sabotage.identifier("tester_sign"))), SabotageBlocks.TESTER_SIGN, SabotageBlocks.WALL_TESTER_SIGN);
     public static final Item DETECTIVE_SHEARS = new DetectiveShears(new Item.Properties().useItemDescriptionPrefix().setId(ResourceKey.create(Registries.ITEM, Sabotage.identifier("detective_shears"))).durability(101));
     public static final Item SHOP_ITEM = new ShopCartItem(new Item.Properties().useItemDescriptionPrefix().setId(ResourceKey.create(Registries.ITEM, Sabotage.identifier("shop_item"))).stacksTo(1));

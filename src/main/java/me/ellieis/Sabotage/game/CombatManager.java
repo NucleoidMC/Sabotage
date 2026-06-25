@@ -8,12 +8,9 @@ import me.ellieis.Sabotage.game.phase.SabotageActive;
 import me.ellieis.Sabotage.game.statistics.KarmaManager;
 import me.ellieis.Sabotage.mixin.MannequinAccessor;
 import net.minecraft.network.protocol.game.ClientboundSetPlayerTeamPacket;
+import net.minecraft.world.entity.*;
 import net.minecraft.world.entity.animal.cow.CowSoundVariants;
 import net.minecraft.world.item.component.ResolvableProfile;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.Pose;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.decoration.Mannequin;
 import net.minecraft.server.level.ServerPlayer;
@@ -210,7 +207,7 @@ public class CombatManager {
     }
 
     private void createPlayerBody(ServerPlayer plr, ServerLevel level, Role plrRole) {
-        Mannequin mannequin = new Mannequin(EntityType.MANNEQUIN, level);
+        Mannequin mannequin = new Mannequin(EntityTypes.MANNEQUIN, level);
         ((MannequinAccessor) mannequin).sabotage$setMannequinProfile(ResolvableProfile.createUnresolved(plr.getUUID()));
         mannequin.setPosRaw(plr.getX(), plr.getY(), plr.getZ());
         mannequin.setPose(Pose.SLEEPING);

@@ -34,6 +34,7 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.level.block.entity.BlockEntityTypes;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
@@ -140,7 +141,7 @@ public class SabotageChest extends ChestBlock implements EntityBlock, PolymerBlo
         if (game != null && game.gameState != GameStates.COUNTDOWN) {
             ServerLevel level = (ServerLevel) levell;
             level.playSound(null, pos, SoundEvents.CHEST_CLOSE, SoundSource.BLOCKS, 1, 1.2f);
-            Vec3 center = pos.getCenter();
+            Vec3 center = Vec3.atCenterOf(pos);
             level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, center.x, center.y, center.z, 16, 0, 0, 0, 0.5);
 
             Inventory inventory = plr.getInventory();
@@ -179,6 +180,6 @@ public class SabotageChest extends ChestBlock implements EntityBlock, PolymerBlo
         nbt.putInt("y", pos.getY());
         nbt.putInt("z", pos.getZ());
         nbt.putString("id", "minecraft:chest");
-        plr.connection.send(PolymerBlockUtils.createBlockEntityPacket(pos, BlockEntityType.CHEST, nbt));
+        plr.connection.send(PolymerBlockUtils.createBlockEntityPacket(pos, BlockEntityTypes.CHEST, nbt));
     }
 }

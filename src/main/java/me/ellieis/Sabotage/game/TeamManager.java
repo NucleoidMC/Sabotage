@@ -11,6 +11,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.Component;
 import net.minecraft.ChatFormatting;
+import net.minecraft.world.scores.TeamColor;
 import xyz.nucleoid.plasmid.api.game.GameActivity;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
 import xyz.nucleoid.plasmid.api.game.GameSpacePlayers;
@@ -19,10 +20,7 @@ import xyz.nucleoid.plasmid.api.game.player.MutablePlayerSet;
 import xyz.nucleoid.plasmid.api.game.player.PlayerSet;
 import xyz.nucleoid.plasmid.mixin.chat.PlayerListS2CPacketEntryAccessor;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
+import java.util.*;
 
 import static me.ellieis.Sabotage.game.custom.SabotageItems.DETECTIVE_SHEARS;
 
@@ -54,15 +52,15 @@ public class TeamManager {
         gameActivity.listen(GamePlayerEvents.REMOVE, this::onRemovePlayer);
         this.game = game;
         this.sab = new PlayerTeam(gameSpace.getServer().getScoreboard(), "sab");
-        sab.setColor(ChatFormatting.RED);
+        sab.setColor(Optional.of(TeamColor.RED));
         this.det = new PlayerTeam(gameSpace.getServer().getScoreboard(), "det");
-        det.setColor(ChatFormatting.BLUE);
+        det.setColor(Optional.of(TeamColor.BLUE));
         this.inno = new PlayerTeam(gameSpace.getServer().getScoreboard(), "inno");
-        inno.setColor(ChatFormatting.GREEN);
+        inno.setColor(Optional.of(TeamColor.GREEN));
         this.unknown = new PlayerTeam(gameSpace.getServer().getScoreboard(), "unknown");
-        unknown.setColor(ChatFormatting.YELLOW);
+        unknown.setColor(Optional.of(TeamColor.YELLOW));
         this.deadTeam = new PlayerTeam(gameSpace.getServer().getScoreboard(), "dead");
-        deadTeam.setColor(ChatFormatting.GRAY);
+        deadTeam.setColor(Optional.of(TeamColor.GRAY));
         this.saboteurs = new MutablePlayerSet(gameSpace.getServer());
         this.detectives = new MutablePlayerSet(gameSpace.getServer());
         this.innocents = new MutablePlayerSet(gameSpace.getServer());

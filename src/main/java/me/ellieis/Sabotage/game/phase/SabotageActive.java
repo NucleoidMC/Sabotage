@@ -290,15 +290,15 @@ public class SabotageActive {
     }
 
     private void changeTesterWool(Role role) {
-        Block wool = (role == Role.SABOTEUR) ? Blocks.RED_WOOL :
-                (role == Role.DETECTIVE) ? Blocks.BLUE_WOOL :
-                        (role == Role.INNOCENT) ? Blocks.GREEN_WOOL : Blocks.WHITE_WOOL;
+        Block wool = (role == Role.SABOTEUR) ? Blocks.WOOL.red() :
+                (role == Role.DETECTIVE) ? Blocks.WOOL.blue() :
+                        (role == Role.INNOCENT) ? Blocks.WOOL.green() : Blocks.WOOL.white();
         for (BlockPos testerWool : map.getTesterWools()) {
             level.setBlockAndUpdate(testerWool, wool.defaultBlockState());
         }
         taskScheduler.addTask(new Task((int) (level.getGameTime() + 200), (gameSpace) -> {
             for (BlockPos testerWool : map.getTesterWools()) {
-                level.setBlockAndUpdate(testerWool, Blocks.WHITE_WOOL.defaultBlockState());
+                level.setBlockAndUpdate(testerWool, Blocks.WOOL.white().defaultBlockState());
             }
             isTesterOnCooldown = false;
         }));
@@ -583,7 +583,7 @@ public class SabotageActive {
         }
         // trapped chests explode when interacted
         BlockPos pos = blockHitResult.getBlockPos();
-        Vec3 centerPos = pos.getCenter();
+        Vec3 centerPos = Vec3.atCenterOf(pos);
         if (level.getBlockState(pos).getBlock() instanceof TrappedChestBlock) {
             level.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
             level.explode(null, Explosion.getDefaultDamageSource(level, trappedChests.get(pos)), null, centerPos.x(), centerPos.y(), centerPos.z(), 4, true, Level.ExplosionInteraction.TNT);
