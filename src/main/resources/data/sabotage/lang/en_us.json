@@ -35,6 +35,7 @@
   "sabotage.sidebar.role.desc": "Find and kill all %s",
   "sabotage.sidebar.time_left": "Time left: %02d:%02d",
 
+  "sabotage.shop.name": "Sabotage Shop",
   "sabotage.shop.desc": "Welcome to the Sabotage Shop!\nClick any item to buy it",
   "sabotage.shop.no_role": "You have no role, you cannot buy any items.",
   "sabotage.shop.wooden_spear": "(30 Karma) Single Use Wooden Spear",

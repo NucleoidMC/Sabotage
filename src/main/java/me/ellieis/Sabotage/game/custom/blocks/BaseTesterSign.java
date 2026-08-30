@@ -4,6 +4,7 @@ import eu.pb4.polymer.core.api.block.PolymerBlockUtils;
 import me.ellieis.Sabotage.Sabotage;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.world.level.block.entity.BlockEntityTypes;
 import net.minecraft.world.level.block.entity.SignText;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.nbt.CompoundTag;
@@ -16,6 +17,7 @@ import net.minecraft.world.item.DyeColor;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.phys.Vec3;
 
 public class BaseTesterSign  {
     public static void onUse(Level level, Player player, BlockPos pos) {
@@ -24,7 +26,7 @@ public class BaseTesterSign  {
 
             for (SabotageActive game : Sabotage.activeGames) {
                 if (game.getLevel().equals(level)) {
-                    if (!game.testEntity(plr, pos.getCenter())) {
+                    if (!game.testEntity(plr, Vec3.atCenterOf(pos))) {
                         plr.sendSystemMessage(Component.translatable("sabotage.tester.fail").withStyle(ChatFormatting.YELLOW));
                     }
                     break;
@@ -65,6 +67,6 @@ public class BaseTesterSign  {
         CompoundTag back = createSignTextNbt();
         main.put("front_text", front);
         main.put("back_text", back);
-        return PolymerBlockUtils.createBlockEntityPacket(pos, BlockEntityType.SIGN, main);
+        return PolymerBlockUtils.createBlockEntityPacket(pos, BlockEntityTypes.SIGN, main);
     }
 }

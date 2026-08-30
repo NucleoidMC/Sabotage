@@ -6,6 +6,7 @@ import me.ellieis.Sabotage.game.custom.SabotageBlocks;
 import me.ellieis.Sabotage.game.custom.SabotageItems;
 import me.ellieis.Sabotage.game.phase.SabotageActive;
 import me.ellieis.Sabotage.game.phase.SabotageWaiting;
+import me.ellieis.Sabotage.game.shop.ShopMenu;
 import net.fabricmc.api.ModInitializer;
 import net.minecraft.resources.Identifier;
 import xyz.nucleoid.plasmid.api.game.GameTypes;
@@ -23,6 +24,7 @@ public class Sabotage implements ModInitializer {
 	public void onInitialize() {
 		SabotageBlocks.register();
 		SabotageItems.register();
+		ShopMenu.register();
         GameTypes.register(Sabotage.identifier("sabotage"), SabotageConfig.CODEC, SabotageWaiting::Open);
 		PolymerResourcePackUtils.addModAssets(MOD_ID);
 	}

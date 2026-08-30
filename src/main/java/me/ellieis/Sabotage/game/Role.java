@@ -1,6 +1,6 @@
 package me.ellieis.Sabotage.game;
 
-public enum Roles {
+public enum Role {
     SABOTEUR,
     DETECTIVE,
     INNOCENT,

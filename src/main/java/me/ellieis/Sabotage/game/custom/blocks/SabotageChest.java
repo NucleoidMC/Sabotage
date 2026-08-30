@@ -10,6 +10,7 @@ import me.ellieis.Sabotage.game.phase.SabotageActive;
 import me.ellieis.Sabotage.game.statistics.GlobalPlayerStatistics;
 import me.ellieis.Sabotage.game.statistics.SabotagePlayerStatistics;
 import net.fabricmc.fabric.api.networking.v1.context.PacketContext;
+import net.minecraft.world.MenuProvider;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.ChestBlock;
@@ -33,11 +34,15 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.level.block.entity.BlockEntityTypes;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.Level;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 import java.util.Map;
@@ -136,7 +141,7 @@ public class SabotageChest extends ChestBlock implements EntityBlock, PolymerBlo
         if (game != null && game.gameState != GameStates.COUNTDOWN) {
             ServerLevel level = (ServerLevel) levell;
             level.playSound(null, pos, SoundEvents.CHEST_CLOSE, SoundSource.BLOCKS, 1, 1.2f);
-            Vec3 center = pos.getCenter();
+            Vec3 center = Vec3.atCenterOf(pos);
             level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, center.x, center.y, center.z, 16, 0, 0, 0, 0.5);
 
             Inventory inventory = plr.getInventory();
@@ -154,12 +159,18 @@ public class SabotageChest extends ChestBlock implements EntityBlock, PolymerBlo
         }
         return InteractionResult.FAIL;
     }
+
+    @Override
+    protected @Nullable MenuProvider getMenuProvider(final BlockState state, final Level level, final BlockPos pos) {
+        return null;
+    }
+
     @Override
     public BlockState getPolymerBlockState(BlockState state, PacketContext context) {
         return this.virtualBlock.withPropertiesOf(state);
     }
 
-    public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
+    public @NonNull BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
         return new SabotageChestBlockEntity(pos, state);
     }
     @Override
@@ -169,6 +180,6 @@ public class SabotageChest extends ChestBlock implements EntityBlock, PolymerBlo
         nbt.putInt("y", pos.getY());
         nbt.putInt("z", pos.getZ());
         nbt.putString("id", "minecraft:chest");
-        plr.connection.send(PolymerBlockUtils.createBlockEntityPacket(pos, BlockEntityType.CHEST, nbt));
+        plr.connection.send(PolymerBlockUtils.createBlockEntityPacket(pos, BlockEntityTypes.CHEST, nbt));
     }
 }

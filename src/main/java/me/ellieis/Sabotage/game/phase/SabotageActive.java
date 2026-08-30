@@ -8,9 +8,11 @@ import me.ellieis.Sabotage.game.config.SabotageConfig;
 import me.ellieis.Sabotage.game.custom.blocks.TesterSign;
 import me.ellieis.Sabotage.game.custom.blocks.WallTesterSign;
 import me.ellieis.Sabotage.game.custom.items.DetectiveShears;
-import me.ellieis.Sabotage.game.custom.items.ShopItem;
+import me.ellieis.Sabotage.game.custom.items.ShopCartItem;
 import me.ellieis.Sabotage.game.map.SabotageMap;
 import me.ellieis.Sabotage.game.map.SabotageMapBuilder;
+import me.ellieis.Sabotage.game.shop.ShopMenu;
+import me.ellieis.Sabotage.game.shop.items.BaseShopItem;
 import me.ellieis.Sabotage.game.statistics.KarmaManager;
 import me.ellieis.Sabotage.game.utils.Task;
 import me.ellieis.Sabotage.game.utils.TaskScheduler;
@@ -22,12 +24,10 @@ import net.minecraft.world.entity.decoration.Mannequin;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.item.ItemCooldowns;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.network.chat.ChatType;
-import net.minecraft.network.chat.OutgoingChatMessage;
 import net.minecraft.network.chat.PlayerChatMessage;
 import net.minecraft.network.protocol.common.ServerboundCustomClickActionPacket;
 import net.minecraft.world.entity.Relative;
@@ -289,16 +289,16 @@ public class SabotageActive {
         return EndReason.NONE;
     }
 
-    private void changeTesterWool(Roles role) {
-        Block wool = (role == Roles.SABOTEUR) ? Blocks.RED_WOOL :
-                (role == Roles.DETECTIVE) ? Blocks.BLUE_WOOL :
-                        (role == Roles.INNOCENT) ? Blocks.GREEN_WOOL : Blocks.WHITE_WOOL;
+    private void changeTesterWool(Role role) {
+        Block wool = (role == Role.SABOTEUR) ? Blocks.WOOL.red() :
+                (role == Role.DETECTIVE) ? Blocks.WOOL.blue() :
+                        (role == Role.INNOCENT) ? Blocks.WOOL.green() : Blocks.WOOL.white();
         for (BlockPos testerWool : map.getTesterWools()) {
             level.setBlockAndUpdate(testerWool, wool.defaultBlockState());
         }
         taskScheduler.addTask(new Task((int) (level.getGameTime() + 200), (gameSpace) -> {
             for (BlockPos testerWool : map.getTesterWools()) {
-                level.setBlockAndUpdate(testerWool, Blocks.WHITE_WOOL.defaultBlockState());
+                level.setBlockAndUpdate(testerWool, Blocks.WOOL.white().defaultBlockState());
             }
             isTesterOnCooldown = false;
         }));
@@ -334,8 +334,8 @@ public class SabotageActive {
                         Component.translatable("sabotage.detective_shears_reveal",
                                 result.plr().getName(),
                                 Component.translatable("sabotage." + (
-                                        (result.role() == Roles.SABOTEUR) ? "saboteur" :
-                                                (result.role() == Roles.DETECTIVE) ? "detective" : "innocent")
+                                        (result.role() == Role.SABOTEUR) ? "saboteur" :
+                                                (result.role() == Role.DETECTIVE) ? "detective" : "innocent")
                                 ).withStyle(TeamManager.getRoleColor(result.role()))));
             };
             taskScheduler.addTask(new Task(revealTime, func));
@@ -350,8 +350,8 @@ public class SabotageActive {
             return;
         }
 
-        Roles role = teamManager.getPlayerRole(plr);
-        if (role == Roles.DETECTIVE) {
+        Role role = teamManager.getPlayerRole(plr);
+        if (role == Role.DETECTIVE) {
             if (entity.isAlwaysTicking()) {
                 ItemCooldowns manager = plr.getCooldowns();
                 ItemStack heldStack = plr.getMainHandItem();
@@ -362,13 +362,13 @@ public class SabotageActive {
                     applyTestingEffects(playerEntity, true);
                     int revealTime = (int) level.getGameTime() + 200;
                     Consumer<GameSpace> func = (gameSpace) -> {
-                        Roles plrRole = teamManager.getPlayerRole(playerEntity);
+                        Role plrRole = teamManager.getPlayerRole(playerEntity);
                         gameSpace.getPlayers().sendMessage(
                                 Component.translatable("sabotage.detective_shears_reveal",
                                         playerEntity.getName(),
                                         Component.translatable("sabotage." + (
-                                                (plrRole == Roles.SABOTEUR) ? "saboteur" :
-                                                        (plrRole == Roles.DETECTIVE) ? "detective" : "innocent")
+                                                (plrRole == Role.SABOTEUR) ? "saboteur" :
+                                                        (plrRole == Role.DETECTIVE) ? "detective" : "innocent")
                                         ).withStyle(TeamManager.getRoleColor(plrRole))));
                     };
                     taskScheduler.addTask(new Task(revealTime, func));
@@ -398,9 +398,9 @@ public class SabotageActive {
                 gameSpace.getPlayers().sendMessage(Component.translatable("sabotage.tester.message", plr.getName(), 5).withStyle(ChatFormatting.YELLOW));
             };
             Consumer<GameSpace> reveal = (gameSpace) -> {
-                Roles plrRole = teamManager.getPlayerRole(plr);
+                Role plrRole = teamManager.getPlayerRole(plr);
                 if (testerBypassers.contains(plr)) {
-                    plrRole = Roles.INNOCENT;
+                    plrRole = Role.INNOCENT;
                     testerBypassers.remove(plr);
                 }
                 // isTesterOnCooldown is changed in this method
@@ -506,7 +506,7 @@ public class SabotageActive {
             activity.listen(PlayerDamageEvent.EVENT, game::onDamage);
             activity.listen(EntityUseEvent.EVENT, game::onEntityUse);
             activity.listen(ItemThrowEvent.EVENT, (plr, slot, stack) -> {
-                if (stack.getItem() instanceof ShopItem || stack.getItem() instanceof DetectiveShears) {
+                if (stack.getItem() instanceof ShopCartItem || stack.getItem() instanceof DetectiveShears) {
                     return EventResult.DENY;
                 } else {
                     return EventResult.PASS;
@@ -554,6 +554,9 @@ public class SabotageActive {
     }
 
     private EventResult onDamage(ServerPlayer plr, DamageSource damageSource, float damageAmount) {
+        if (plr.isSpectator()) {
+            return EventResult.DENY;
+        }
         combatManager.onDamage(plr, damageSource,damageAmount);
         return EventResult.PASS;
     }
@@ -580,10 +583,10 @@ public class SabotageActive {
         }
         // trapped chests explode when interacted
         BlockPos pos = blockHitResult.getBlockPos();
-        Vec3 centerPos = pos.getCenter();
+        Vec3 centerPos = Vec3.atCenterOf(pos);
         if (level.getBlockState(pos).getBlock() instanceof TrappedChestBlock) {
             level.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
-            level.explode(trappedChests.get(pos), centerPos.x(), centerPos.y(), centerPos.z(), 4, Level.ExplosionInteraction.TNT);
+            level.explode(null, Explosion.getDefaultDamageSource(level, trappedChests.get(pos)), null, centerPos.x(), centerPos.y(), centerPos.z(), 4, true, Level.ExplosionInteraction.TNT);
             return InteractionResult.CONSUME;
         }
         return InteractionResult.PASS;
@@ -604,12 +607,12 @@ public class SabotageActive {
                         0.85f);
                 if (entity != null && entity.isAlwaysTicking()) {
                     ServerPlayer player = (ServerPlayer) entity;
-                    Roles playerRole = teamManager.getPlayerRole(player);
+                    Role playerRole = teamManager.getPlayerRole(player);
                     int karma;
-                    if (playerRole == Roles.SABOTEUR) {
+                    if (playerRole == Role.SABOTEUR) {
                         karma = config.saboteurConfig().detectiveKarmaAward();
                         karmaManager.incrementKarma(player, karma);
-                    } else if (playerRole != Roles.NONE) {
+                    } else if (playerRole != Role.NONE) {
                         karma = -config.innocentConfig().detectiveKarmaPenalty();
                         karmaManager.decrementKarma(player, -karma);
                     } else {
@@ -637,14 +640,13 @@ public class SabotageActive {
 
     private boolean onChat(ServerPlayer plr, PlayerChatMessage signedMessage, ChatType.Bound parameters) {
         if (gameState == GameStates.ACTIVE) {
-            if (teamManager.getPlayerRole(plr) != Roles.NONE) {
+            if (teamManager.getPlayerRole(plr) != Role.NONE) {
                 chatManager.onChat(plr, signedMessage.decoratedContent());
             }
             if (plr.isSpectator()) {
                 teamManager.dead.sendMessage(Component.literal("<" + plr.getName().getString() + "> ").withStyle(ChatFormatting.GRAY).append(signedMessage.decoratedContent().copy().withStyle(ChatFormatting.RESET)));
             }
-            // I have no idea what this is (or what it does), docs said to use it so I'm using it
-            OutgoingChatMessage.create(signedMessage);
+
             return true;
         }
         return false;
@@ -659,6 +661,7 @@ public class SabotageActive {
         if (result != EventResult.PASS) {
             return result;
         }
+        plr.getInventory().removeItem(new ItemStack(SHOP_ITEM));
         plr.getInventory().dropAll();
         EndReason endReason = checkWinCondition();
         if (endReason != EndReason.NONE) {
@@ -674,108 +677,17 @@ public class SabotageActive {
         return EventResult.DENY;
     }
 
-    private void onShopBuy(ServerPlayer plr, String item) {
-        Roles role = teamManager.getPlayerRole(plr);
-        switch (role) {
-            case SABOTEUR:
-                switch (item) {
-                    case "trapped_chest":
-                        if (karmaManager.getKarma(plr) > 20) {
-                            plr.getInventory().add(new ItemStack(Items.TRAPPED_CHEST));
-                            karmaManager.decrementKarma(plr, 20);
-                            plr.sendSystemMessage(Component.translatable("sabotage.shop.trapped_chest.desc"));
-                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
-                        } else {
-                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
-                        }
-                        break;
-                    case "tester_bypass":
-                        if (karmaManager.getKarma(plr) > 20) {
-                            testerBypassers.add(plr);
-                            karmaManager.decrementKarma(plr, 20);
-                            plr.sendSystemMessage(Component.translatable("sabotage.shop.tester_bypass.desc"));
-                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
-                        } else {
-                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
-                        }
-                        break;
-                }
-                break;
-            case DETECTIVE:
-                switch (item) {
-                    case "tester_recharge":
-                        if (karmaManager.getKarma(plr) > 10) {
-                            Inventory inventory = plr.getInventory();
-                            int slot = -1;
-                            for (int i = 0; i < 36; i++) {
-                                if (inventory.getItem(i).getItem() instanceof DetectiveShears) {
-                                    slot = i;
-                                    break;
-                                }
-                            }
-                            if (slot == -1) {
-                                plr.sendSystemMessage(Component.translatable("sabotage.shop.tester_recharge.fail").withStyle(ChatFormatting.RED), true);
-                                break;
-                            }
-                            ItemStack stack = inventory.getItem(slot);
-                            if (stack.getDamageValue() >= 50) {
-                                stack.setDamageValue(stack.getDamageValue() - 50);
-                                plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
-                                plr.sendSystemMessage(Component.translatable("sabotage.shop.tester_recharge.desc"));
-                                karmaManager.decrementKarma(plr, 10);
-                            } else {
-                                plr.sendSystemMessage(Component.translatable("sabotage.shop.tester_recharge.full").withStyle(ChatFormatting.RED), true);
-                            }
-                        } else {
-                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
-                        }
-                        break;
-                    case "player_tracker":
-                        if (karmaManager.getKarma(plr) > 20) {
-                            playersWithTracker.add(plr);
-                            for (ServerPlayer alive : getAlivePlayers()) {
-                                Vector3i pos = alive.blockPosition().toMutable();
-                                plr.connection.send(ClientboundTrackedWaypointPacket.addWaypointPosition(alive.getUUID(), Waypoint.Icon.NULL, new Vec3i(pos.x, pos.y, pos.z)));
-                            }
-                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
-                            plr.sendSystemMessage(Component.translatable("sabotage.shop.tracker.desc"));
-                            karmaManager.decrementKarma(plr, 20);
-                        } else {
-                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
-                        }
-                        break;
-                }
-                break;
-            case INNOCENT:
-                switch (item) {
-                    case "wooden_spear":
-                        if (karmaManager.getKarma(plr) > 30) {
-                            ItemStack spear = new ItemStack(Items.WOODEN_SPEAR);
-                            spear.setDamageValue(spear.getMaxDamage() - 1);
-                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(30 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
-                            plr.sendSystemMessage(Component.translatable("sabotage.shop.wooden_spear.desc"));
-                            plr.getInventory().add(spear);
-                            karmaManager.decrementKarma(plr, 30);
-                        } else {
-                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
-                        }
-                        break;
-                    case "player_tracker":
-                        if (karmaManager.getKarma(plr) > 20) {
-                            playersWithTracker.add(plr);
-                            for (ServerPlayer alive : getAlivePlayers()) {
-                                Vector3i pos = alive.blockPosition().toMutable();
-                                plr.connection.send(ClientboundTrackedWaypointPacket.addWaypointPosition(alive.getUUID(), Waypoint.Icon.NULL, new Vec3i(pos.x, pos.y, pos.z)));
-                            }
-                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_success", Component.literal("(20 Karma)").withStyle(ChatFormatting.BLUE)).withStyle(ChatFormatting.GREEN), true);
-                            plr.sendSystemMessage(Component.translatable("sabotage.shop.tracker.desc"));
-                            karmaManager.decrementKarma(plr, 20);
-                        } else {
-                            plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
-                        }
-                        break;
-                }
-                break;
+    private void onShopBuy(ServerPlayer plr, String itemId) {
+        Role role = teamManager.getPlayerRole(plr);
+        BaseShopItem item = ShopMenu.getItemFromId(itemId);
+        if (item != null && ShopMenu.getShopItemsForRole(role).contains(item)) {
+            if (karmaManager.getKarma(plr) < item.price) {
+                plr.sendSystemMessage(Component.translatable("sabotage.shop.buy_fail").withStyle(ChatFormatting.RED), true);
+                return;
+            }
+            if (item.onBuy(plr, this)) {
+                karmaManager.decrementKarma(plr, item.price);
+            }
         }
     }
 
@@ -796,25 +708,25 @@ public class SabotageActive {
         for (ServerPlayer plr2 : playersWithTracker) {
             plr2.connection.send(ClientboundTrackedWaypointPacket.removeWaypoint(plr.getUUID()));
         }
-        Roles role = teamManager.getPlayerRole(plr);
-        if (role == Roles.SABOTEUR) {
+        Role role = teamManager.getPlayerRole(plr);
+        if (role == Role.SABOTEUR) {
             teamManager.saboteurs.remove(plr);
             saboteurSidebar.removePlayer(plr);
-        } else if (role == Roles.DETECTIVE) {
+        } else if (role == Role.DETECTIVE) {
             teamManager.detectives.remove(plr);
             detectiveSidebar.removePlayer(plr);
-        } else if (role == Roles.INNOCENT) {
+        } else if (role == Role.INNOCENT) {
             teamManager.innocents.remove(plr);
             innocentSidebar.removePlayer(plr);
         } else {
             teamManager.dead.remove(plr);
         }
         globalSidebar.removePlayer(plr);
-        //combatManager.onPlayerLeave(plr);
+
         // get around alive check by doing this
         plr.setGameMode(GameType.SPECTATOR);
         if (gameState != GameStates.ENDED) {
-            if (role != Roles.NONE) {
+            if (role != Role.NONE) {
                 EndReason endReason = checkWinCondition();
                 if (endReason != EndReason.NONE) {
                     End(endReason);

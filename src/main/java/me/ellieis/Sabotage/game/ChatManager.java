@@ -1,10 +1,7 @@
 package me.ellieis.Sabotage.game;
 
 import me.ellieis.Sabotage.game.config.SabotageConfig;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.PositionMoveRotation;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.Display;
+import net.minecraft.world.entity.*;
 import net.minecraft.network.protocol.game.ClientboundTeleportEntityPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
@@ -54,7 +51,7 @@ public class ChatManager {
     }
 
     private void proximityTextChat(ServerPlayer plr, Component message) {
-        Display.TextDisplay entity = new Display.TextDisplay(EntityType.TEXT_DISPLAY, plr.level());
+        Display.TextDisplay entity = new Display.TextDisplay(EntityTypes.TEXT_DISPLAY, plr.level());
         entity.setBillboardConstraints(Display.BillboardConstraints.CENTER);
         entity.setText(message);
         entity.setLineWidth(100);

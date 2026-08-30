@@ -19,7 +19,7 @@ import java.util.function.Function;
 
 public class SabotageBlocks {
     public static final SabotageChest SABOTAGE_CHEST = register("sabotage_chest", SabotageChest::new, BlockBehaviour.Properties.ofFullCopy(Blocks.CHEST).noLootTable());
-    public static final TesterWool TESTER_WOOL = register("tester_wool", TesterWool::new, BlockBehaviour.Properties.ofFullCopy(Blocks.WHITE_WOOL).noLootTable());
+    public static final TesterWool TESTER_WOOL = register("tester_wool", TesterWool::new, BlockBehaviour.Properties.ofFullCopy(Blocks.WOOL.white()).noLootTable());
     public static final TesterSign TESTER_SIGN = register("tester_sign", TesterSign::new, BlockBehaviour.Properties.ofFullCopy(Blocks.OAK_SIGN).noLootTable());
     public static final WallTesterSign WALL_TESTER_SIGN = register("wall_tester_sign", WallTesterSign::new, BlockBehaviour.Properties.ofFullCopy(Blocks.OAK_WALL_SIGN).noLootTable());
 

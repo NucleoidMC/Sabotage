@@ -7,7 +7,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.Blocks;
 
 public class TesterWool extends Block implements PolymerBlock {
-    private final Block virtualBlock = Blocks.WHITE_WOOL;
+    private final Block virtualBlock = Blocks.WOOL.white();
     public TesterWool(Properties settings) {
         super(settings);
     }
