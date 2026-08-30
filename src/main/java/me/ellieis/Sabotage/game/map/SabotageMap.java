@@ -73,7 +73,7 @@ public class SabotageMap {
         Collections.shuffle(chestSpawns);
 
         // Make sure that the chest count doesn't go over the amount of chest positions
-        int chestCount = Math.min(15 * playerCount, chestSpawns.size());
+        int chestCount = Math.min(config.playerChestCount() * playerCount, chestSpawns.size());
         for (ChestInfo chestInfo : chestSpawns) {
             if (chestCount > 0) {
                 chestCount--;
