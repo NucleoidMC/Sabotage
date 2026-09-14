@@ -17,7 +17,7 @@ public class KarmaManager {
     public void setKarma(ServerPlayer plr, int karma) {
         stats.forPlayer(plr).set(KARMA, karma);
         plr.setExperienceLevels(karma);
-        if (karma <= 0) {
+        if (karma < 0) {
             plr.kill(plr.level());
         }
     }
