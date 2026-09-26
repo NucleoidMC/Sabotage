@@ -7,7 +7,7 @@ import net.minecraft.server.level.ServerPlayer;
 
 public class TesterBypass extends BaseShopItem {
     public TesterBypass() {
-        super("sabotage.shop.tester_bypass", 20, "tester_bypass", "sabotage.shop.tester_bypass.desc");
+        super("tester_bypass", 20, "sabotage.shop.tester_bypass", "sabotage.shop.tester_bypass.desc");
     }
 
     public boolean onBuy(ServerPlayer player, SabotageActive game) {

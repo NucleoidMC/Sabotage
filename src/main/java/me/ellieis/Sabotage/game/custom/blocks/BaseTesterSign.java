@@ -17,7 +17,10 @@ import net.minecraft.world.item.DyeColor;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.SignTextSlot;
 import net.minecraft.world.phys.Vec3;
+
+import java.util.List;
 
 public class BaseTesterSign  {
     public static void onUse(Level level, Player player, BlockPos pos) {
@@ -38,8 +41,9 @@ public class BaseTesterSign  {
     public static void onPlaced(Level level, BlockPos pos) {
         if (!level.isClientSide()) {
             TesterSignBlockEntity be = (TesterSignBlockEntity) level.getBlockEntity(pos);
-            Component[] text = {Component.literal("Click"), Component.literal("this sign"), Component.literal("to start"), Component.literal("test")};
-            be.setText(new SignText(text, text, DyeColor.RED, true), true);
+            List<Component> text = List.of(Component.literal("Click"), Component.literal("this sign"), Component.literal("to start"), Component.literal("test"));
+            be.setText(new SignText(text, text, DyeColor.RED, true), SignTextSlot.FRONT);
+            be.setText(new SignText(text, text, DyeColor.RED, true), SignTextSlot.BACK);
             be.setWaxed(true);
         }
     }

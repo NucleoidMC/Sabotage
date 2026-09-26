@@ -2,18 +2,16 @@ package me.ellieis.Sabotage.game.custom.items;
 
 import eu.pb4.polymer.core.api.item.PolymerItem;
 import net.fabricmc.fabric.api.networking.v1.context.PacketContext;
+import net.minecraft.core.Direction;
 import net.minecraft.core.HolderLookup;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.SignItem;
+import net.minecraft.world.item.*;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.resources.Identifier;
 
-public class TesterSign extends SignItem implements PolymerItem {
+public class TesterSign extends StandingAndWallBlockItem implements PolymerItem {
 
-    public TesterSign(Properties settings, Block standingBlock, Block wallBlock) {
-        super(standingBlock, wallBlock, settings);
+    public TesterSign(Item.Properties settings, Block standingBlock, Block wallBlock) {
+        super(standingBlock, wallBlock, Direction.DOWN, settings);
     }
 
     @Override

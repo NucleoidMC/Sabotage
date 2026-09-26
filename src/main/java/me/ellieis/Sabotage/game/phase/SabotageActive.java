@@ -386,7 +386,7 @@ public class SabotageActive {
                 return false;
             }
             isTesterOnCooldown = true;
-            plr.randomTeleport(pos.x(), pos.y(), pos.z(), true);
+            plr.randomTeleport(pos.x(), pos.y(), pos.z(), true, (e) -> false);
             applyTestingEffects(plr, false);
             for (BlockPos blockPos : map.getTesterCloseRegion().getBounds()) {
                 level.setBlockAndUpdate(blockPos, Blocks.IRON_BARS.defaultBlockState());
