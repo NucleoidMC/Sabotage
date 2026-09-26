@@ -562,6 +562,7 @@ public class SabotageActive {
     }
 
     private InteractionResult onBlockUse(ServerPlayer player, InteractionHand hand, BlockHitResult blockHitResult) {
+        if (player.isSpectator()) return InteractionResult.FAIL;
         ItemStack item = player.getItemInHand(hand);
         // TNT ignites on place
         if (item.is(Items.TNT)) {
